@@ -1243,9 +1243,54 @@ function renderRulesPage(container) {
             </div>
         </div>
 
+        <div class="panel">
+            <div class="rule-form">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label for="new-rule-content">新增叮嚀內容</label>
+                    <input type="text" id="new-rule-content" placeholder="例如：禁用「粉絲」，一律改用「信眾」或「菩薩」">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label for="new-rule-category">分類</label>
+                    <select id="new-rule-category">
+                        <option value="詞彙提醒">詞彙提醒</option>
+                        <option value="當期主題">當期主題</option>
+                        <option value="排版規定">排版規定</option>
+                        <option value="自動歸納">自動歸納</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="handleAddRule()">
+                    ${ICONS.add}
+                    新增
+                </button>
+            </div>
+
+            <div class="error-msg" id="rules-error"></div>
+
+            <div class="rule-filter-row" id="rule-filter-row">
+                <button class="filter-chip active" data-filter="all" onclick="setRuleFilter('all')">全部</button>
+                <button class="filter-chip" data-filter="week" onclick="setRuleFilter('week')">本週新增</button>
+                <button class="filter-chip" data-filter="自動歸納" onclick="setRuleFilter('自動歸納')">僅看自動歸納</button>
+                <span class="rule-filter-count" id="rule-filter-count"></span>
+                <div class="rule-export-actions">
+                    <button class="btn btn-secondary" style="padding:6px 14px;font-size:12.5px;" onclick="exportRulesAsJson()">
+                        ${ICONS.exportDoc}
+                        備份 JSON
+                    </button>
+                    <button class="btn btn-secondary" style="padding:6px 14px;font-size:12.5px;" onclick="exportRulesAsWord()">
+                        ${ICONS.exportDoc}
+                        備份 Word
+                    </button>
+                </div>
+            </div>
+
+            <div class="rule-list" id="rules-list">
+                <div class="empty-state">載入中……</div>
+            </div>
+        </div>
+
         <div class="panel diff-panel">
             <h4>${ICONS.seal}從潤稿前後對照，自動歸納規則</h4>
-            <p class="diff-desc">貼上（或匯入 Word 檔）同一篇文章的「潤稿前」與「潤稿後」版本，卓編會分析兩者差異，把可重複套用的修改習慣（例如固定用詞、慣用句式）自動整理成規則，直接加入下方清單。分析出來的規則會標記為「自動歸納」分類；若內容跟現有規則完全相同會自動略過，不會重複新增。</p>
+            <p class="diff-desc">貼上（或匯入 Word 檔）同一篇文章的「潤稿前」與「潤稿後」版本，卓編會分析兩者差異，把可重複套用的修改習慣（例如固定用詞、慣用句式）自動整理成規則，直接加入上方清單。分析出來的規則會標記為「自動歸納」分類；若內容跟現有規則完全相同會自動略過，不會重複新增。</p>
 
             <div class="diff-columns">
                 <div class="form-group" style="margin-bottom:0;">
@@ -1310,51 +1355,6 @@ function renderRulesPage(container) {
                     </div>
                 </div>
                 <div id="diff-batch-summary"></div>
-            </div>
-        </div>
-
-        <div class="panel">
-            <div class="rule-form">
-                <div class="form-group" style="margin-bottom:0;">
-                    <label for="new-rule-content">新增叮嚀內容</label>
-                    <input type="text" id="new-rule-content" placeholder="例如：禁用「粉絲」，一律改用「信眾」或「菩薩」">
-                </div>
-                <div class="form-group" style="margin-bottom:0;">
-                    <label for="new-rule-category">分類</label>
-                    <select id="new-rule-category">
-                        <option value="詞彙提醒">詞彙提醒</option>
-                        <option value="當期主題">當期主題</option>
-                        <option value="排版規定">排版規定</option>
-                        <option value="自動歸納">自動歸納</option>
-                    </select>
-                </div>
-                <button class="btn btn-primary" onclick="handleAddRule()">
-                    ${ICONS.add}
-                    新增
-                </button>
-            </div>
-
-            <div class="error-msg" id="rules-error"></div>
-
-            <div class="rule-filter-row" id="rule-filter-row">
-                <button class="filter-chip active" data-filter="all" onclick="setRuleFilter('all')">全部</button>
-                <button class="filter-chip" data-filter="week" onclick="setRuleFilter('week')">本週新增</button>
-                <button class="filter-chip" data-filter="自動歸納" onclick="setRuleFilter('自動歸納')">僅看自動歸納</button>
-                <span class="rule-filter-count" id="rule-filter-count"></span>
-                <div class="rule-export-actions">
-                    <button class="btn btn-secondary" style="padding:6px 14px;font-size:12.5px;" onclick="exportRulesAsJson()">
-                        ${ICONS.exportDoc}
-                        備份 JSON
-                    </button>
-                    <button class="btn btn-secondary" style="padding:6px 14px;font-size:12.5px;" onclick="exportRulesAsWord()">
-                        ${ICONS.exportDoc}
-                        備份 Word
-                    </button>
-                </div>
-            </div>
-
-            <div class="rule-list" id="rules-list">
-                <div class="empty-state">載入中……</div>
             </div>
         </div>
     `;
