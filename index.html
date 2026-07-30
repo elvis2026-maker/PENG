@@ -475,12 +475,52 @@
         }
 
         /* ================= 共用元件：子頁面 ================= */
+        /* V08：頁面切換過場——淡入＋輕微上移，取代原本瞬間切換的生硬感 */
         .page {
             display: none;
         }
 
         .page.active {
             display: block;
+            animation: page-fade-in 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+        }
+
+        /* 切換前的頁面：短暫淡出並微微上移，與 app.js 的 showPage() 過場計時器搭配 */
+        .page.page-leaving {
+            display: block;
+            animation: page-fade-out 0.14s ease-in both;
+        }
+
+        @keyframes page-fade-in {
+            0% {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes page-fade-out {
+            0% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateY(-6px);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            .page.active,
+            .page.page-leaving {
+                animation: none;
+            }
         }
 
         .back-link {
@@ -946,7 +986,7 @@
         .loading-indicator {
             display: none;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
             color: var(--text-muted);
             font-size: 14px;
             margin-top: 4px;
@@ -956,50 +996,73 @@
             display: flex;
         }
 
+        /* V08：「大神親自潤稿」沉浸感升級
+           - 背景加一圈柔和金色光暈呼吸（象徵大神現身）
+           - 三圈墨暈改為金／綠／棕交錯色，並帶淡淡色相流動
+           - 毛筆改為「真的在寫字」：筆尖沿路徑移動＋落墨光點隨筆尖噴濺
+           - 新增環繞的細碎金粉粒子，緩緩升起又淡出 */
         .ink-brush {
             position: relative;
-            width: 40px;
-            height: 40px;
+            width: 46px;
+            height: 46px;
             flex-shrink: 0;
         }
 
         .ink-brush svg {
             width: 100%;
             height: 100%;
+            overflow: visible;
         }
 
-        /* 墨滴暈染：三圈由深至淺的圓，依序放大淡出，模擬水墨滴落宣紙暈開 */
+        /* 大神現身的柔光暈：低調的呼吸光暈，襯托後方所有動畫 */
+        .ink-brush .divine-glow {
+            fill: url(#divineGlowGradient);
+            transform-origin: center;
+            animation: divine-glow-breathe 2.6s ease-in-out infinite;
+        }
+
+        @keyframes divine-glow-breathe {
+            0%, 100% { opacity: 0.35; transform: scale(0.9); }
+            50% { opacity: 0.75; transform: scale(1.08); }
+        }
+
+        /* 墨滴暈染：三圈由深至淺的圓，依序放大淡出，並帶色相流動（金→綠→棕） */
         .ink-brush .ink-ring {
             fill: none;
-            stroke: var(--ddm-green);
+            stroke: url(#inkRingGradient);
             stroke-width: 2.5;
             transform-origin: center;
-            animation: ink-bloom 1.8s ease-out infinite;
+            animation: ink-bloom 1.8s ease-out infinite, ink-hue-shift 3.6s linear infinite;
         }
 
         .ink-brush .ink-ring:nth-child(2) {
-            animation-delay: 0.4s;
+            animation-delay: 0.4s, 0s;
         }
 
         .ink-brush .ink-ring:nth-child(3) {
-            animation-delay: 0.8s;
+            animation-delay: 0.8s, 0s;
         }
 
         @keyframes ink-bloom {
             0% {
                 r: 3;
-                opacity: 0.9;
+                opacity: 0.95;
                 stroke-width: 3;
             }
 
             100% {
-                r: 15;
+                r: 18;
                 opacity: 0;
                 stroke-width: 0.5;
             }
         }
 
-        /* 毛筆筆尖：緩緩畫出一道弧線，象徵落筆審閱 */
+        @keyframes ink-hue-shift {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(30deg); }
+        }
+
+        /* 毛筆筆尖：沿弧線緩緩畫出，象徵落筆審閱，筆畫本身帶金色高光 */
         .ink-brush .brush-tip {
             stroke: var(--ddm-brown);
             stroke-width: 2;
@@ -1008,6 +1071,32 @@
             stroke-dasharray: 34;
             stroke-dashoffset: 34;
             animation: brush-stroke 1.8s ease-in-out infinite;
+        }
+
+        .ink-brush .brush-tip-glow {
+            stroke: url(#brushGlowGradient);
+            stroke-width: 4;
+            stroke-linecap: round;
+            fill: none;
+            stroke-dasharray: 34;
+            stroke-dashoffset: 34;
+            opacity: 0.5;
+            filter: blur(0.6px);
+            animation: brush-stroke 1.8s ease-in-out infinite;
+        }
+
+        /* 筆尖跟隨的落墨光點：沿同一條路徑移動，象徵「正在下筆」 */
+        .ink-brush .brush-spark {
+            offset-path: path("M9 14C13 10 18 8 25 9");
+            offset-rotate: 0deg;
+            animation: brush-spark-move 1.8s ease-in-out infinite;
+        }
+
+        @keyframes brush-spark-move {
+            0%, 8% { offset-distance: 0%; opacity: 0; }
+            15% { opacity: 1; }
+            55% { offset-distance: 100%; opacity: 1; }
+            75%, 100% { offset-distance: 100%; opacity: 0; }
         }
 
         @keyframes brush-stroke {
@@ -1030,10 +1119,37 @@
             }
         }
 
+        /* 環繞升起的金粉粒子：三顆錯開時間，緩緩上浮淡出，呼應「有靈氣圍繞」的沉浸感 */
+        .ink-brush .gold-mote {
+            fill: #d4a537;
+            animation: mote-rise 2.4s ease-in infinite;
+        }
+
+        .ink-brush .gold-mote:nth-child(7) { animation-delay: 0s; }
+        .ink-brush .gold-mote:nth-child(8) { animation-delay: 0.8s; }
+        .ink-brush .gold-mote:nth-child(9) { animation-delay: 1.6s; }
+
+        @keyframes mote-rise {
+            0% { opacity: 0; transform: translateY(0) scale(0.6); }
+            20% { opacity: 0.9; }
+            100% { opacity: 0; transform: translateY(-14px) scale(1.1); }
+        }
+
         .loading-text {
             display: inline-flex;
             align-items: baseline;
             gap: 2px;
+            background: linear-gradient(90deg, var(--text-muted), var(--ddm-brown), var(--ddm-green), var(--text-muted));
+            background-size: 300% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: loading-text-shimmer 3.2s linear infinite;
+        }
+
+        @keyframes loading-text-shimmer {
+            0% { background-position: 0% 0; }
+            100% { background-position: 300% 0; }
         }
 
         /* 文字後面的省略號逐點浮現，取代生硬的「請稍候」跳動 */
@@ -1068,6 +1184,11 @@
 
             .ink-brush .ink-ring,
             .ink-brush .brush-tip,
+            .ink-brush .brush-tip-glow,
+            .ink-brush .brush-spark,
+            .ink-brush .gold-mote,
+            .ink-brush .divine-glow,
+            .loading-text,
             .loading-text .dot {
                 animation: none;
             }
@@ -1079,6 +1200,22 @@
             .ink-brush .brush-tip {
                 stroke-dashoffset: 0;
                 opacity: 0.6;
+            }
+
+            .ink-brush .brush-tip-glow,
+            .ink-brush .brush-spark,
+            .ink-brush .gold-mote {
+                display: none;
+            }
+
+            .ink-brush .divine-glow {
+                opacity: 0.4;
+            }
+
+            .loading-text {
+                background: none;
+                -webkit-text-fill-color: var(--text-muted);
+                color: var(--text-muted);
             }
 
             .loading-text .dot {
@@ -1413,7 +1550,7 @@
     </main>
 
     <footer>
-        Elvis 程式設計 ‧ 艾維斯資訊 IT‧ V07‧2026-07-30
+        Elvis 程式設計 ‧ 艾維斯資訊 IT‧ V08‧2026-07-30
     </footer>
 
     <!-- V5：檔案匯入匯出用 -->

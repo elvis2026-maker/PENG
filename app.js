@@ -253,42 +253,90 @@ function toggleDiffView(pageKey, originalText, resultText, resultBoxId, diffBoxI
 // ================= 自繪圖示庫（手繪水墨線條風格，取代通用素材圖示） =================
 // 所有選單／功能圖示皆為原創 SVG 線條繪製，呼應法鼓禪風的溫潤筆觸；
 // LOGO 仍固定使用 logo.png，不在此列。
+// V08：四大卡片圖示升級為全彩、多層次漸層＋高光陰影的立體水墨浮雕風格
+// 每組 SVG 各自內建 <defs> 漸層／濾鏡（id 加上圖示名稱前綴避免衝突），
+// 手法：底層深色陰影 → 主體漸層填色 → 內部細節線條 → 局部高光，堆疊出微立體的紙感／墨韻質地。
 const ICONS = {
-    // 活動報導：一張攤開的稿紙，右上角一筆勾勒的墨線，象徵潤飾筆觸
+    // 活動報導：一張攤開的稿紙（暖白紙面漸層＋摺角陰影），右上角一筆金色墨線象徵潤飾筆觸
     report: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M9 6.5H23.5L28 11V29.5H9V6.5Z" stroke="white" stroke-width="1.8" stroke-linejoin="round"/>
-        <path d="M23 6.5V11H28" stroke="white" stroke-width="1.8" stroke-linejoin="round"/>
-        <path d="M13 16.5H23" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
-        <path d="M13 20.5H23" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
-        <path d="M13 24.5H19" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
-        <path d="M25.5 15.5C26.5 14 27.8 14.6 27.4 16C27 17.4 24.6 19.4 23.5 20" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+        <defs>
+            <linearGradient id="reportPaperGrad" x1="9" y1="6.5" x2="28" y2="29.5" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#ffffff"/>
+                <stop offset="100%" stop-color="#e9e4d8"/>
+            </linearGradient>
+            <linearGradient id="reportFoldGrad" x1="23" y1="6.5" x2="28" y2="11" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#f7f4ec"/>
+                <stop offset="100%" stop-color="#cfc7b0"/>
+            </linearGradient>
+            <linearGradient id="reportInkGrad" x1="25.5" y1="15.5" x2="23.5" y2="20" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#f3d98b"/>
+                <stop offset="100%" stop-color="#c98f2b"/>
+            </linearGradient>
+        </defs>
+        <path d="M9.8 7.3H23.1L27.2 11.6V29.9H9.8V7.3Z" fill="#000000" opacity="0.14"/>
+        <path d="M9 6.5H23.5L28 11V29.5H9V6.5Z" fill="url(#reportPaperGrad)" stroke="#ffffff" stroke-width="0.6" stroke-linejoin="round"/>
+        <path d="M23 6.5V11H28" fill="url(#reportFoldGrad)" stroke="#ffffff" stroke-width="0.6" stroke-linejoin="round"/>
+        <path d="M13 16.5H23" stroke="#8a8060" stroke-width="1.5" stroke-linecap="round" opacity="0.75"/>
+        <path d="M13 20.5H23" stroke="#8a8060" stroke-width="1.5" stroke-linecap="round" opacity="0.75"/>
+        <path d="M13 24.5H19" stroke="#8a8060" stroke-width="1.5" stroke-linecap="round" opacity="0.75"/>
+        <path d="M25.5 15.5C26.5 14 27.8 14.6 27.4 16C27 17.4 24.6 19.4 23.5 20" stroke="url(#reportInkGrad)" stroke-width="1.8" stroke-linecap="round"/>
     </svg>`,
 
-    // 人物專訪：兩個相對而談的圓潤剪影，中間一朵簡化蓮花花瓣象徵禪意主標
+    // 人物專訪：兩位相對而談的圓潤剪影（膚色系漸層＋淡蓮花光暈），呼應學佛因緣的訪談氛圍
     interview: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="12" cy="13" r="4" stroke="white" stroke-width="1.8"/>
-        <path d="M6 27C6 22 8.5 19.5 12 19.5C15.5 19.5 18 22 18 27" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
-        <path d="M24 8C25.2 9.4 25.2 11 24 12.4" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M27 6C29 8 29 12.4 27 14.6" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M20.5 27C20.5 22.6 22.6 20 26 20C29.4 20 31.5 22.6 31.5 27" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="1.5 3"/>
-        <circle cx="26" cy="15" r="3.2" stroke="white" stroke-width="1.6"/>
+        <defs>
+            <linearGradient id="interviewFrontGrad" x1="6" y1="8" x2="18" y2="27" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#ffe9c2"/>
+                <stop offset="100%" stop-color="#e8c98a"/>
+            </linearGradient>
+            <linearGradient id="interviewBackGrad" x1="20" y1="6" x2="31.5" y2="27" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#cdeadb"/>
+                <stop offset="100%" stop-color="#9bcdb2"/>
+            </linearGradient>
+        </defs>
+        <circle cx="26" cy="15" r="4" fill="url(#interviewBackGrad)" opacity="0.9"/>
+        <path d="M20.5 27C20.5 22.6 22.6 20 26 20C29.4 20 31.5 22.6 31.5 27" fill="url(#interviewBackGrad)" opacity="0.55"/>
+        <circle cx="12" cy="13" r="4.6" fill="#000000" opacity="0.1"/>
+        <circle cx="12" cy="13" r="4" fill="url(#interviewFrontGrad)" stroke="#ffffff" stroke-width="0.6"/>
+        <path d="M6 27C6 22 8.5 19.5 12 19.5C15.5 19.5 18 22 18 27" fill="url(#interviewFrontGrad)" stroke="#ffffff" stroke-width="0.6" stroke-linecap="round"/>
+        <path d="M24 8C25.2 9.4 25.2 11 24 12.4" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round" opacity="0.8"/>
+        <path d="M27 6C29 8 29 12.4 27 14.6" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round" opacity="0.6"/>
     </svg>`,
 
-    // 活動 DM：一支揚起的宣傳旗幟／喇叭花瓣，三道弧線表示訊息擴散
+    // 活動 DM：一支揚起的宣傳旗幟（金棕漸層立體摺面），三道金色弧線表示訊息擴散
     dm: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M8 13L23 8V22.5L8 19V13Z" stroke="white" stroke-width="1.8" stroke-linejoin="round"/>
-        <path d="M8 13H5.5V19H8" stroke="white" stroke-width="1.8" stroke-linejoin="round"/>
-        <path d="M10.5 19.5L12 27" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
-        <path d="M26 12.5C28 14 28 16.5 26 18" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M29 9.5C32.5 12.5 32.5 18 29 21" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <defs>
+            <linearGradient id="dmFlagGrad" x1="8" y1="8" x2="23" y2="22.5" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#ffe3a3"/>
+                <stop offset="100%" stop-color="#d19a3d"/>
+            </linearGradient>
+            <linearGradient id="dmPoleGrad" x1="5.5" y1="13" x2="12" y2="27" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#efe6d2"/>
+                <stop offset="100%" stop-color="#c9bd9d"/>
+            </linearGradient>
+        </defs>
+        <path d="M8.6 13.6L23.6 8.6V23.1L8.6 19.6V13.6Z" fill="#000000" opacity="0.12"/>
+        <path d="M8 13L23 8V22.5L8 19V13Z" fill="url(#dmFlagGrad)" stroke="#ffffff" stroke-width="0.6" stroke-linejoin="round"/>
+        <path d="M8 13H5.5V19H8" fill="url(#dmPoleGrad)" stroke="#ffffff" stroke-width="0.6" stroke-linejoin="round"/>
+        <path d="M10.5 19.5L12 27" stroke="#8a6a2a" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
+        <path d="M26 12.5C28 14 28 16.5 26 18" stroke="#e8b84a" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M29 9.5C32.5 12.5 32.5 18 29 21" stroke="#e8b84a" stroke-width="1.6" stroke-linecap="round" opacity="0.7"/>
     </svg>`,
 
-    // 便條紙：一枚繫著細繩的木牌／便箋，加上一小截墨筆，呼應「大神的便條紙」
+    // 便條紙：一枚繫繩木牌（深綠漸層＋木紋質感），呼應「大神的便條紙」規則庫
     rules: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M11 9.5C11 8.4 11.9 7.5 13 7.5H23C24.1 7.5 25 8.4 25 9.5V27.5C25 28.3 24.1 28.8 23.4 28.3L18 24.5L12.6 28.3C11.9 28.8 11 28.3 11 27.5V9.5Z" stroke="white" stroke-width="1.8" stroke-linejoin="round"/>
-        <path d="M14.5 13H21.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M14.5 16.5H21.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M14.5 20H18.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <defs>
+            <linearGradient id="rulesTagGrad" x1="11" y1="7.5" x2="25" y2="28.8" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#dcefe1"/>
+                <stop offset="100%" stop-color="#a9cdb4"/>
+            </linearGradient>
+        </defs>
+        <path d="M11.8 10.1C11.8 9 12.7 8.1 13.8 8.1H23.8C24.9 8.1 25.8 9 25.8 10.1V27.8C25.8 28.6 24.9 29.1 24.3 28.6L18.9 24.8L13.5 28.6C12.8 29.1 11.8 28.6 11.8 27.8V10.1Z" fill="#000000" opacity="0.12"/>
+        <path d="M11 9.5C11 8.4 11.9 7.5 13 7.5H23C24.1 7.5 25 8.4 25 9.5V27.5C25 28.3 24.1 28.8 23.4 28.3L18 24.5L12.6 28.3C11.9 28.8 11 28.3 11 27.5V9.5Z" fill="url(#rulesTagGrad)" stroke="#ffffff" stroke-width="0.6" stroke-linejoin="round"/>
+        <circle cx="18" cy="11.6" r="1.15" fill="none" stroke="#3c6b4a" stroke-width="0.9" opacity="0.65"/>
+        <path d="M14.5 15H21.5" stroke="#3c6b4a" stroke-width="1.4" stroke-linecap="round" opacity="0.7"/>
+        <path d="M14.5 18.5H21.5" stroke="#3c6b4a" stroke-width="1.4" stroke-linecap="round" opacity="0.7"/>
+        <path d="M14.5 22H18.5" stroke="#3c6b4a" stroke-width="1.4" stroke-linecap="round" opacity="0.7"/>
     </svg>`,
 
     // 返回：回鋒筆觸的弧形箭頭
@@ -355,14 +403,38 @@ const NAV_ICONS = {
     rules: `<svg class="icon-inline icon-14" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11 9.5C11 8.4 11.9 7.5 13 7.5H23C24.1 7.5 25 8.4 25 9.5V27.5C25 28.3 24.1 28.8 23.4 28.3L18 24.5L12.6 28.3C11.9 28.8 11 28.3 11 27.5V9.5Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>`,
 };
 
-// 審稿中動畫（毛筆墨韻）：三圈暈染墨紋 + 一筆緩緩畫出的筆觸
+// 審稿中動畫（毛筆墨韻，V08 升級版）：
+// 光暈呼吸 + 三圈色相流動墨暈 + 雙層筆觸（含金色高光）+ 沿筆畫路徑移動的落墨光點 + 三顆上浮金粉粒子
+// 全部純 CSS + SVG 實作，無額外套件；已於對應 CSS 處理 prefers-reduced-motion。
 const INK_LOADER = `
     <div class="ink-brush">
         <svg viewBox="0 0 40 40">
+            <defs>
+                <radialGradient id="divineGlowGradient" cx="50%" cy="55%" r="55%">
+                    <stop offset="0%" stop-color="#f3d98b" stop-opacity="0.9"/>
+                    <stop offset="55%" stop-color="#d4a537" stop-opacity="0.35"/>
+                    <stop offset="100%" stop-color="#d4a537" stop-opacity="0"/>
+                </radialGradient>
+                <linearGradient id="inkRingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#d4a537"/>
+                    <stop offset="50%" stop-color="#1a5c3a"/>
+                    <stop offset="100%" stop-color="#8B6914"/>
+                </linearGradient>
+                <linearGradient id="brushGlowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#f3d98b"/>
+                    <stop offset="100%" stop-color="#d4a537"/>
+                </linearGradient>
+            </defs>
+            <circle class="divine-glow" cx="20" cy="22" r="17"></circle>
             <circle class="ink-ring" cx="20" cy="24" r="3"></circle>
             <circle class="ink-ring" cx="20" cy="24" r="3"></circle>
             <circle class="ink-ring" cx="20" cy="24" r="3"></circle>
+            <path class="brush-tip-glow" d="M9 14C13 10 18 8 25 9" />
             <path class="brush-tip" d="M9 14C13 10 18 8 25 9" />
+            <circle class="brush-spark" r="1.6" fill="#f3d98b"></circle>
+            <circle class="gold-mote" cx="12" cy="30" r="1.1"></circle>
+            <circle class="gold-mote" cx="27" cy="32" r="0.9"></circle>
+            <circle class="gold-mote" cx="20" cy="34" r="1.3"></circle>
         </svg>
     </div>`;
 
@@ -386,11 +458,35 @@ function updateNavActiveState(pageId) {
 }
 
 // ================= 頁面切換 =================
+// V08：頁面切換過場——若目前有頁面顯示中，先讓它做一個短暫的淡出／上移，
+// 再切換 active class 讓目標頁面套用 CSS 的 page-fade-in 動畫，兩段合起來像是「翻頁」的感覺。
+// 使用 prefers-reduced-motion 時直接跳過過場，維持原本瞬間切換。
 function showPage(pageId) {
-    document.querySelectorAll(".page").forEach((p) => p.classList.remove("active"));
-    const target = document.getElementById(`page-${pageId}`);
-    target.classList.add("active");
+    const prefersReducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const currentActive = document.querySelector(".page.active");
 
+    const doSwitch = () => {
+        document.querySelectorAll(".page").forEach((p) => {
+            p.classList.remove("active");
+            p.classList.remove("page-leaving");
+        });
+        const target = document.getElementById(`page-${pageId}`);
+        target.classList.add("active");
+        renderTargetPage(pageId, target);
+        updateNavActiveState(pageId);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    if (!prefersReducedMotion && currentActive && currentActive.id !== `page-${pageId}`) {
+        currentActive.classList.add("page-leaving");
+        setTimeout(doSwitch, 140);
+    } else {
+        doSwitch();
+    }
+}
+
+// 依 pageId 執行對應頁面的首次渲染／重新拉取資料（從 showPage 拆出，方便過場計時器呼叫）
+function renderTargetPage(pageId, target) {
     if (pageId === "report" && !target.dataset.rendered) {
         renderReportPage(target);
     } else if (pageId === "interview" && !target.dataset.rendered) {
@@ -404,9 +500,6 @@ function showPage(pageId) {
     if (pageId === "rules") {
         loadRules(); // 每次進入便條紙頁都重新拉取最新規則
     }
-
-    updateNavActiveState(pageId);
-    window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 // ================= 便條紙規則庫：載入 / 組成 Prompt 片段 =================
