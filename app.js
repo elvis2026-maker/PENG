@@ -220,15 +220,32 @@ async function loadRules() {
     renderRulesList();
 }
 
+// V07：燈號不再直接顯示文字，改用 title（滑鼠 hover）+ tooltip（點擊查看，給手機用）
+// el 本身只留一顆圓點，文字說明搬到 title 屬性和內部的 .status-tooltip
 function setConnectionStatus(online) {
     const el = document.getElementById("connectionStatus");
+    const tooltip = document.getElementById("connectionStatusTooltip");
+    const text = online ? "知識庫已連線" : "知識庫連線異常";
+    el.title = text;
+    if (tooltip) tooltip.textContent = text;
+    el.classList.remove("demo");
     if (online) {
-        el.textContent = "知識庫已連線";
         el.classList.remove("offline");
     } else {
-        el.textContent = "知識庫連線異常";
         el.classList.add("offline");
     }
+}
+
+// 手機沒有 hover，點一下燈號彈出文字泡泡，2 秒後自動收起
+let statusTooltipTimer = null;
+function toggleStatusTooltip() {
+    const tooltip = document.getElementById("connectionStatusTooltip");
+    if (!tooltip) return;
+    tooltip.classList.add("show");
+    clearTimeout(statusTooltipTimer);
+    statusTooltipTimer = setTimeout(() => {
+        tooltip.classList.remove("show");
+    }, 2000);
 }
 
 // 把目前啟用中的規則組成一段文字，安插進送給卓編的 System Prompt
@@ -1315,7 +1332,12 @@ document.addEventListener("DOMContentLoaded", () => {
     updateNavActiveState("home");
 
     if (DEMO_MODE) {
-        setConnectionStatus(false);
-        document.getElementById("connectionStatus").textContent = "示範模式（尚未串接 Worker）";
+        const el = document.getElementById("connectionStatus");
+        const tooltip = document.getElementById("connectionStatusTooltip");
+        const text = "示範模式（尚未串接 Worker）";
+        el.title = text;
+        if (tooltip) tooltip.textContent = text;
+        el.classList.remove("offline");
+        el.classList.add("demo");
     }
 });

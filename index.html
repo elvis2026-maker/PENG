@@ -90,30 +90,93 @@
             letter-spacing: 2px;
         }
 
+        /* V07：改為單純燈號圓點（原本是文字膠囊「知識庫已連線」，手機版太佔空間）
+           - 平時只顯示一顆會微微脈動的圓點，綠色＝已連線、紅色＝異常、灰色＝示範模式
+           - 完整文字說明改放在 title 屬性（滑鼠移過去會顯示），不佔版面
+           - 手機無 hover，改為點擊燈號彈出小提示泡泡，2 秒後自動收起 */
         .status-btn {
-            padding: 8px 16px;
+            position: relative;
+            width: 30px;
+            height: 30px;
             border: 1px solid #d4c9b0;
             background-color: white;
-            border-radius: 20px;
-            font-size: 14px;
-            color: var(--text-muted);
+            border-radius: 50%;
             display: flex;
             align-items: center;
-            gap: 6px;
+            justify-content: center;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+            cursor: pointer;
+            flex-shrink: 0;
         }
 
         .status-btn::before {
             content: '';
             display: inline-block;
-            width: 8px;
-            height: 8px;
+            width: 10px;
+            height: 10px;
             background-color: var(--ddm-green);
             border-radius: 50%;
+            animation: status-pulse 2.4s infinite;
         }
 
         .status-btn.offline::before {
             background-color: var(--danger);
+            animation: status-pulse-offline 2.4s infinite;
+        }
+
+        .status-btn.demo::before {
+            background-color: #999999;
+            animation: none;
+        }
+
+        @keyframes status-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(26, 92, 58, 0.45); }
+            70% { box-shadow: 0 0 0 6px rgba(26, 92, 58, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(26, 92, 58, 0); }
+        }
+
+        @keyframes status-pulse-offline {
+            0% { box-shadow: 0 0 0 0 rgba(179, 64, 58, 0.45); }
+            70% { box-shadow: 0 0 0 6px rgba(179, 64, 58, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(179, 64, 58, 0); }
+        }
+
+        /* 點擊燈號後彈出的文字小泡泡，取代原本常駐的文字膠囊 */
+        .status-tooltip {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            background-color: #333333;
+            color: #ffffff;
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(-4px);
+            transition: opacity 0.15s, transform 0.15s;
+            z-index: 200;
+        }
+
+        .status-tooltip::after {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            right: 10px;
+            border: 5px solid transparent;
+            border-bottom-color: #333333;
+        }
+
+        .status-tooltip.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .status-btn::before {
+                animation: none;
+            }
         }
 
         /* 次列選單（視覺升級用，對應四項核心功能，仍為單頁卡片切換） */
@@ -158,14 +221,52 @@
         }
 
         @media (max-width: 760px) {
+            /* V07：改為一次全部擠進同一行顯示，不再橫向滑動（原本 overflow-x: auto 會被滑走看不到全部選單）
+               作法：縮小左右留白、縮小選單間距與字級、選單圖示縮小或視寬度隱藏，
+               並用 white-space: nowrap 確保每個選項文字不換行斷字。 */
+            .header-top {
+                padding: 10px 14px;
+            }
+
             .header-nav {
-                overflow-x: auto;
-                justify-content: flex-start;
-                -webkit-overflow-scrolling: touch;
+                justify-content: space-between;
+                gap: 2px;
+                padding: 0 6px 8px;
             }
 
             .nav-link {
-                flex-shrink: 0;
+                flex: 1 1 0;
+                justify-content: center;
+                padding: 6px 4px;
+                font-size: 11px;
+                gap: 3px;
+                white-space: nowrap;
+                letter-spacing: 0;
+            }
+
+            .nav-link svg {
+                width: 13px;
+                height: 13px;
+            }
+
+            .logo-text .title {
+                font-size: 15px;
+            }
+
+            .logo-text .subtitle {
+                display: none;
+            }
+        }
+
+        @media (max-width: 400px) {
+            /* 極窄螢幕（舊款小手機）：圖示先隱藏，只留文字，確保五個字都不斷行 */
+            .nav-link svg {
+                display: none;
+            }
+
+            .nav-link {
+                font-size: 10.5px;
+                padding: 6px 2px;
             }
         }
 
@@ -1013,9 +1114,7 @@
         }
 
         @media (max-width: 640px) {
-            header {
-                padding: 12px 20px;
-            }
+            /* header 的 padding 已交由 760px 斷點的 .header-top 統一控制，這裡不再覆寫，避免兩個斷點打架 */
 
             main {
                 padding: 40px 16px;
@@ -1047,7 +1146,9 @@
                     <span class="subtitle">DIGITAL EDITOR ZHUO</span>
                 </div>
             </div>
-            <div class="status-btn" id="connectionStatus">知識庫已連線</div>
+            <div class="status-btn" id="connectionStatus" title="知識庫已連線" onclick="toggleStatusTooltip()">
+                <span class="status-tooltip" id="connectionStatusTooltip">知識庫已連線</span>
+            </div>
         </div>
         <nav class="header-nav" id="headerNav">
             <div class="nav-link" data-nav="home" onclick="showPage('home')"><span data-icon-inline="home"></span>首頁</div>
