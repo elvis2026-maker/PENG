@@ -46,7 +46,7 @@ const WORKER_BASE_URL = "https://zhuo-editor-proxy.<your-subdomain>.workers.dev"
 | 活動報導潤稿 | `renderReportPage` | `handleReportSubmit` |
 | 人物專訪潤稿 | `renderInterviewPage` | `handleInterviewSubmit` |
 | 活動 DM 撰寫 | `renderDmPage` | `handleDmSubmit` |
-| 大神的便條紙 | `renderRulesPage` | `handleAddRule` / `handleToggleRule` / `handleDeleteRule` |
+| 大神的便條紙 | `renderRulesPage` | `handleAddRule` / `handleToggleRule` / `handleDeleteRule` / `handleAnalyzeDiff`（V6 新增，見下方說明） |
 
 每個「送出處理函式」內都有組 `systemPrompt` 的邏輯，其中會呼叫 `buildRulesPromptFragment()` 動態取得目前啟用中的便條紙規則並安插進去——這是四個功能共用規則庫的關鍵函式，如果要調整卓編潤稿的邏輯或語氣，直接修改對應函式裡的 `systemPrompt` 字串即可。
 
@@ -71,3 +71,14 @@ LOGO（`logo.png`）不在這套圖示庫內，維持原檔案不變。
 - **外部依賴**：`index.html` 新增了兩個 `<script src>`（cdnjs 的 `mammoth.browser.min.js`、jsDelivr 的 `docx` UMD build）。這兩支腳本由**使用者的瀏覽器**直接向 CDN 下載，與 Worker 無關；如果使用者所在的網路環境有網域白名單限制，需要放行 `cdnjs.cloudflare.com` 與 `cdn.jsdelivr.net`，否則匯入／匯出按鈕會顯示「元件尚未載入完成」的錯誤訊息。
 - 目前只支援 `.docx`；上傳其他格式（如舊版 `.doc`）會顯示提示訊息，請對方先用 Word 另存新檔為 `.docx` 再上傳。
 - 潤稿結果中的「■ 小標題」記號，匯出時會自動轉換為 Word 文件內的粗體小標題（並移除 ■ 符號），其餘段落維持原樣。
+
+## V6 新增：潤稿前後對照 → 自動歸納便條紙規則
+
+「大神的便條紙」頁面（`renderRulesPage`）最上方新增一個比對區塊，對應函式：`handleAnalyzeDiff()`。
+
+- **運作方式**：使用者貼上（或匯入 `.docx`）同一篇文章的「潤稿前」與「潤稿後」文字，送給卓編（透過既有的 `askZhuo()` / `/api/generate`，沒有新增 Worker 路由），並在 `systemPrompt` 裡要求它只用 JSON 陣列格式回覆，每一則是 `{ "content": "規則文字" }`。
+- **解析容錯**：`parseDiffAnalysisResult()` 負責解析卓編回傳的文字，即使卓編不小心加了 ```` ```json ```` 包裹或前後多了幾句說明文字，也能正確擷取出 JSON 陣列；真的解析失敗才會拋出錯誤讓使用者重試。
+- **重複比對邏輯**：以 `rulesCache` 目前的規則內容（文字完全相同）做比對，重複的直接跳過，只有新內容才會呼叫新增。這段邏輯抽成共用函式 `createRuleOnServer(content, category)`，`handleAddRule()`（手動新增）跟 `handleAnalyzeDiff()`（自動歸納）都共用同一支，避免兩處邏輯各自維護。
+- **固定分類**：所有由此功能新增的規則，分類寫死為「自動歸納」（新增了對應的 CSS `.rule-tag.tag-auto`，以及下拉選單新增同名選項），不會沿用卓編自己判斷的分類，方便使用者一眼區分「這是自動歸納出來的」還是「這是人工手動新增的」。
+- **完全自動寫入、無需人工確認**：這是刻意的設計決策——分析完成後直接呼叫 `createRuleOnServer()` 寫入 KV，沒有中間的「請使用者勾選採用」步驟。如果要改回需要人工確認才寫入，可以在 `handleAnalyzeDiff()` 裡，把「呼叫 `createRuleOnServer` 的迴圈」改成先把 `toCreate` 陣列渲染成可勾選的清單，等使用者按確認後才逐一寫入。
+- 一次僅支援一組「潤稿前／潤稿後」對照；沒有批次上傳多組的功能。

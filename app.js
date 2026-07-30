@@ -969,6 +969,51 @@ function renderRulesPage(container) {
             </div>
         </div>
 
+        <div class="panel diff-panel">
+            <h4>${ICONS.seal}從潤稿前後對照，自動歸納規則</h4>
+            <p class="diff-desc">貼上（或匯入 Word 檔）同一篇文章的「潤稿前」與「潤稿後」版本，卓編會分析兩者差異，把可重複套用的修改習慣（例如固定用詞、慣用句式）自動整理成規則，直接加入下方清單。分析出來的規則會標記為「自動歸納」分類；若內容跟現有規則完全相同會自動略過，不會重複新增。</p>
+
+            <div class="diff-columns">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label for="diff-before">潤稿前（初稿原文）</label>
+                    <div class="import-row">
+                        <label class="file-import-label">
+                            ${ICONS.importDoc}
+                            匯入 Word 檔（.docx）
+                            <input type="file" accept=".docx" onchange="handleWordImport(this, 'diff-before', 'diff-before-status')">
+                        </label>
+                        <span class="import-status" id="diff-before-status"></span>
+                    </div>
+                    <textarea id="diff-before" placeholder="請貼上寫手原始初稿，或點選上方「匯入 Word 檔」直接上傳……"></textarea>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label for="diff-after">潤稿後（卓師姊定稿）</label>
+                    <div class="import-row">
+                        <label class="file-import-label">
+                            ${ICONS.importDoc}
+                            匯入 Word 檔（.docx）
+                            <input type="file" accept=".docx" onchange="handleWordImport(this, 'diff-after', 'diff-after-status')">
+                        </label>
+                        <span class="import-status" id="diff-after-status"></span>
+                    </div>
+                    <textarea id="diff-after" placeholder="請貼上卓師姊潤飾完成的定稿，或點選上方「匯入 Word 檔」直接上傳……"></textarea>
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-primary" id="diff-submit" onclick="handleAnalyzeDiff()">
+                    ${ICONS.submit}
+                    分析並歸納規則
+                </button>
+                <div class="loading-indicator" id="diff-loading">
+                    ${INK_LOADER}
+                    <span class="loading-text">卓編正在比對前後差異<span class="dot">．</span><span class="dot">．</span><span class="dot">．</span></span>
+                </div>
+            </div>
+            <div class="error-msg" id="diff-error"></div>
+            <div id="diff-result-summary"></div>
+        </div>
+
         <div class="panel">
             <div class="rule-form">
                 <div class="form-group" style="margin-bottom:0;">
@@ -981,6 +1026,7 @@ function renderRulesPage(container) {
                         <option value="詞彙提醒">詞彙提醒</option>
                         <option value="當期主題">當期主題</option>
                         <option value="排版規定">排版規定</option>
+                        <option value="自動歸納">自動歸納</option>
                     </select>
                 </div>
                 <button class="btn btn-primary" onclick="handleAddRule()">
@@ -1010,6 +1056,7 @@ function renderRulesList() {
         "詞彙提醒": "tag-vocab",
         "當期主題": "tag-theme",
         "排版規定": "tag-format",
+        "自動歸納": "tag-auto",
     };
 
     listEl.innerHTML = rulesCache
@@ -1033,6 +1080,31 @@ function renderRulesList() {
         .join("");
 }
 
+// 共用：把一則規則寫入資料庫（DEMO_MODE 下寫入記憶體），回傳寫入後的 rule 物件
+async function createRuleOnServer(content, category) {
+    if (DEMO_MODE) {
+        const rule = {
+            id: `demo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            content,
+            category,
+            is_active: true,
+            created_at: new Date().toISOString(),
+        };
+        rulesCache.push(rule);
+        return rule;
+    }
+
+    const resp = await fetch(`${WORKER_BASE_URL}/api/rules`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, category, is_active: true }),
+    });
+    if (!resp.ok) throw new Error("新增失敗");
+    const data = await resp.json();
+    rulesCache.push(data.rule);
+    return data.rule;
+}
+
 async function handleAddRule() {
     const contentInput = document.getElementById("new-rule-content");
     const categorySelect = document.getElementById("new-rule-category");
@@ -1048,33 +1120,159 @@ async function handleAddRule() {
 
     const category = categorySelect.value;
 
-    if (DEMO_MODE) {
-        rulesCache.push({
-            id: `demo-${Date.now()}`,
-            content,
-            category,
-            is_active: true,
-            created_at: new Date().toISOString(),
-        });
-        contentInput.value = "";
-        renderRulesList();
-        return;
-    }
-
     try {
-        const resp = await fetch(`${WORKER_BASE_URL}/api/rules`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content, category, is_active: true }),
-        });
-        if (!resp.ok) throw new Error("新增失敗");
-        const data = await resp.json();
-        rulesCache.push(data.rule);
+        await createRuleOnServer(content, category);
         contentInput.value = "";
         renderRulesList();
     } catch (err) {
         errorEl.textContent = `新增失敗：${err.message}`;
         errorEl.classList.add("show");
+    }
+}
+
+// ================= V6：潤稿前後對照 → 自動歸納規則 =================
+async function handleAnalyzeDiff() {
+    const beforeText = document.getElementById("diff-before").value.trim();
+    const afterText = document.getElementById("diff-after").value.trim();
+    const errorEl = document.getElementById("diff-error");
+    const summaryEl = document.getElementById("diff-result-summary");
+    errorEl.classList.remove("show");
+    summaryEl.innerHTML = "";
+    summaryEl.className = "";
+
+    if (!beforeText || !afterText) {
+        errorEl.textContent = "請同時貼上（或匯入）「潤稿前」與「潤稿後」兩份文字，才能進行比對。";
+        errorEl.classList.add("show");
+        return;
+    }
+
+    const submitBtn = document.getElementById("diff-submit");
+    const loadingEl = document.getElementById("diff-loading");
+
+    submitBtn.disabled = true;
+    loadingEl.classList.add("show");
+
+    const systemPrompt = `你是「卓師姊」的助理，任務是比對同一篇文章「潤稿前」與「潤稿後」的差異，從中歸納出卓師姊慣用的修改習慣，整理成日後可以重複套用的規則。
+
+【任務】
+1. 仔細比對兩份文字的差異（用詞替換、句式調整、固定用語、格式習慣等）。
+2. 只萃取「有規律、值得日後重複套用」的修改模式，例如：
+   - 特定詞彙固定替換為另一個詞（例如某個字詞卓師姊一律改成另一種說法）
+   - 特定人物、頭銜、機構名稱的固定寫法
+   - 一致的格式或標點習慣
+3. 忽略以下這類差異，不要產生規則：
+   - 單純因為上下文不同而產生的一次性調整（沒有重複性、無法歸納成通則）
+   - 單純的錯字修正但只出現一次、看不出是否為固定規則
+   - 單純的字數增刪、段落順序調整
+4. 如果比對後找不到任何有規律的修改模式，回傳空陣列，不要為了湊數而勉強生成規則。
+5. 每一則規則的文字敘述，請比照「大神的便條紙」現有規則的口吻與精簡度撰寫，例如：「聖嚴師父的說法固定用「開示」，不可用「示導」或其他說法」。
+
+【輸出格式規定，請務必嚴格遵守】
+只能輸出一個 JSON 陣列，不要有任何其他文字、說明、前言或 Markdown 符號（不要用 \`\`\`json 包起來）。格式如下：
+[
+  { "content": "規則文字敘述" },
+  { "content": "規則文字敘述" }
+]
+如果沒有可歸納的規則，請輸出：[]`;
+
+    const userPrompt = `【潤稿前（初稿原文）】
+${beforeText}
+
+【潤稿後（卓師姊定稿）】
+${afterText}`;
+
+    try {
+        const result = await askZhuo({ systemPrompt, userPrompt, temperature: 0.3 });
+        const extractedRules = parseDiffAnalysisResult(result);
+
+        if (extractedRules.length === 0) {
+            summaryEl.className = "diff-result-summary";
+            summaryEl.textContent = "這次比對沒有找到明顯、可重複套用的修改模式，因此沒有新增任何規則。";
+            return;
+        }
+
+        // 與現有規則做「內容完全相同」的重複比對，跳過重複的，只新增沒看過的規則
+        const existingContents = new Set(rulesCache.map((r) => r.content.trim()));
+        const toCreate = [];
+        const skipped = [];
+
+        extractedRules.forEach((r) => {
+            const content = (r.content || "").trim();
+            if (!content) return;
+            if (existingContents.has(content)) {
+                skipped.push(content);
+            } else {
+                toCreate.push({ content });
+                existingContents.add(content); // 避免這次分析結果內部自己重複
+            }
+        });
+
+        const created = [];
+        const failed = [];
+        for (const r of toCreate) {
+            try {
+                // 分類固定標記為「自動歸納」，方便日後跟人工新增的規則做區分
+                const rule = await createRuleOnServer(r.content, "自動歸納");
+                created.push(rule);
+            } catch (err) {
+                failed.push(r.content);
+            }
+        }
+
+        renderRulesList();
+
+        let summaryHtml = `本次分析共找到 ${extractedRules.length} 條修改模式：<br>`;
+        summaryHtml += `<strong>新增 ${created.length} 條</strong>（已標記為「自動歸納」分類）`;
+        if (skipped.length > 0) {
+            summaryHtml += `，<strong>略過 ${skipped.length} 條重複規則</strong>（便條紙裡已經有一模一樣的內容）`;
+        }
+        if (failed.length > 0) {
+            summaryHtml += `，<strong style="color:var(--danger);">${failed.length} 條寫入失敗</strong>`;
+        }
+        summaryHtml += "。";
+
+        if (created.length > 0) {
+            summaryHtml += `<ul style="margin-top:8px; padding-left:20px;">`;
+            created.forEach((rule) => {
+                summaryHtml += `<li>${escapeHtml(rule.content)}</li>`;
+            });
+            summaryHtml += `</ul>`;
+        }
+
+        summaryEl.className = failed.length > 0 ? "diff-result-summary error" : "diff-result-summary success";
+        summaryEl.innerHTML = summaryHtml;
+    } catch (err) {
+        errorEl.textContent = `分析失敗：${err.message}`;
+        errorEl.classList.add("show");
+    } finally {
+        submitBtn.disabled = false;
+        loadingEl.classList.remove("show");
+    }
+}
+
+// 解析卓編回傳的 JSON 規則陣列文字，容錯處理（去除可能的 ```json 包裹、多餘文字）
+function parseDiffAnalysisResult(rawText) {
+    let text = (rawText || "").trim();
+
+    // 容錯：即使指示不要用 Markdown 包裹，仍去除可能出現的 ```json ... ``` 包裹
+    const fencedMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fencedMatch) {
+        text = fencedMatch[1].trim();
+    }
+
+    // 容錯：只取第一個 [ 到最後一個 ] 之間的內容，避免前後有額外說明文字
+    const start = text.indexOf("[");
+    const end = text.lastIndexOf("]");
+    if (start !== -1 && end !== -1 && end > start) {
+        text = text.slice(start, end + 1);
+    }
+
+    try {
+        const parsed = JSON.parse(text);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter((r) => r && typeof r.content === "string" && r.content.trim());
+    } catch (err) {
+        throw new Error("卓編回傳的格式無法解析，請再試一次");
     }
 }
 

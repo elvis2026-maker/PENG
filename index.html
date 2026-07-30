@@ -581,6 +581,58 @@
             font-weight: 700;
         }
 
+        /* V6：潤稿前後對照 → 自動歸納規則 */
+        .diff-panel {
+            border: 1px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background-color: #fbfaf7;
+        }
+
+        .diff-panel h4 {
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+
+        .diff-panel .diff-desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .diff-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .diff-columns textarea {
+            min-height: 140px;
+        }
+
+        .diff-result-summary {
+            margin-top: 16px;
+            padding: 14px 16px;
+            border-radius: 10px;
+            background-color: #fdfcfa;
+            border: 1px solid var(--border-color);
+            font-size: 14px;
+            line-height: 1.7;
+        }
+
+        .diff-result-summary.success {
+            border-color: #cfe0d3;
+            background-color: #f3f8f4;
+        }
+
+        .diff-result-summary.error {
+            border-color: #e5c2c0;
+            background-color: #fbf2f1;
+            color: var(--danger);
+        }
+
         /* 結果區塊 */
         .result-panel {
             display: none;
@@ -886,6 +938,11 @@
             color: #40548b;
         }
 
+        .rule-tag.tag-auto {
+            background-color: #f2ecf7;
+            color: #6b4c9a;
+        }
+
         .rule-content {
             font-size: 14px;
             color: var(--text-main);
@@ -1062,7 +1119,7 @@
     </main>
 
     <footer>
-        Elvis 程式設計 ‧ 艾維斯資訊顧問 IT‧ V05‧2026-07-30
+        Elvis 程式設計 ‧ 艾維斯資訊顧問 IT‧ V06‧2026-07-30
     </footer>
 
     <!-- V5：檔案匯入匯出用 -->
