@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>卓編數位書房 | 艾維斯資訊顧問 IT</title>
+    <title>卓編數位書房 | DIGITAL EDITOR ZHUO</title>
     <!-- 引入 Google 字體 -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- V3：已改用自繪 SVG 線條圖示，不再依賴 Material Symbols 字型 -->
@@ -130,15 +130,31 @@
         }
 
         @keyframes status-pulse {
-            0% { box-shadow: 0 0 0 0 rgba(26, 92, 58, 0.45); }
-            70% { box-shadow: 0 0 0 6px rgba(26, 92, 58, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(26, 92, 58, 0); }
+            0% {
+                box-shadow: 0 0 0 0 rgba(26, 92, 58, 0.45);
+            }
+
+            70% {
+                box-shadow: 0 0 0 6px rgba(26, 92, 58, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(26, 92, 58, 0);
+            }
         }
 
         @keyframes status-pulse-offline {
-            0% { box-shadow: 0 0 0 0 rgba(179, 64, 58, 0.45); }
-            70% { box-shadow: 0 0 0 6px rgba(179, 64, 58, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(179, 64, 58, 0); }
+            0% {
+                box-shadow: 0 0 0 0 rgba(179, 64, 58, 0.45);
+            }
+
+            70% {
+                box-shadow: 0 0 0 6px rgba(179, 64, 58, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(179, 64, 58, 0);
+            }
         }
 
         /* 點擊燈號後彈出的文字小泡泡，取代原本常駐的文字膠囊 */
@@ -221,6 +237,7 @@
         }
 
         @media (max-width: 760px) {
+
             /* V07：改為一次全部擠進同一行顯示，不再橫向滑動（原本 overflow-x: auto 會被滑走看不到全部選單）
                作法：縮小左右留白、縮小選單間距與字級、選單圖示縮小或視寬度隱藏，
                並用 white-space: nowrap 確保每個選項文字不換行斷字。 */
@@ -259,6 +276,7 @@
         }
 
         @media (max-width: 400px) {
+
             /* 極窄螢幕（舊款小手機）：圖示先隱藏，只留文字，確保五個字都不斷行 */
             .nav-link svg {
                 display: none;
@@ -1151,11 +1169,15 @@
             </div>
         </div>
         <nav class="header-nav" id="headerNav">
-            <div class="nav-link" data-nav="home" onclick="showPage('home')"><span data-icon-inline="home"></span>首頁</div>
-            <div class="nav-link" data-nav="report" onclick="showPage('report')"><span data-icon-inline="report"></span>活動報導</div>
-            <div class="nav-link" data-nav="interview" onclick="showPage('interview')"><span data-icon-inline="interview"></span>人物專訪</div>
+            <div class="nav-link" data-nav="home" onclick="showPage('home')"><span data-icon-inline="home"></span>首頁
+            </div>
+            <div class="nav-link" data-nav="report" onclick="showPage('report')"><span
+                    data-icon-inline="report"></span>活動報導</div>
+            <div class="nav-link" data-nav="interview" onclick="showPage('interview')"><span
+                    data-icon-inline="interview"></span>人物專訪</div>
             <div class="nav-link" data-nav="dm" onclick="showPage('dm')"><span data-icon-inline="dm"></span>活動 DM</div>
-            <div class="nav-link" data-nav="rules" onclick="showPage('rules')"><span data-icon-inline="rules"></span>大神的便條紙</div>
+            <div class="nav-link" data-nav="rules" onclick="showPage('rules')"><span
+                    data-icon-inline="rules"></span>大神的便條紙</div>
         </nav>
     </header>
 
@@ -1220,7 +1242,7 @@
     </main>
 
     <footer>
-        Elvis 程式設計 ‧ 艾維斯資訊顧問 IT‧ V06‧2026-07-30
+        Elvis 程式設計 ‧ 艾維斯資訊 IT‧ V06‧2026-07-30
     </footer>
 
     <!-- V5：檔案匯入匯出用 -->
