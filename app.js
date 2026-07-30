@@ -438,6 +438,29 @@ const INK_LOADER = `
         </svg>
     </div>`;
 
+// V09：大面積沉浸式審稿載入區塊——鋪在「結果即將出現」的位置，取代原本只有按鈕旁一顆小動畫的單薄感。
+// 延續 INK_LOADER 的墨暈＋金色柔光呼吸語彙（同一組 SVG），下方疊加多色流光骨架條模擬文章逐段浮現，
+// 讓「大神正在潤稿」的存在感佔滿整個結果卡片，而不只是一顆小圖示。
+// idPrefix 用於產生唯一的 element id，text 為標頭文字（例如「卓編正在提筆潤稿」）。
+function buildCanvasLoader(idPrefix, text) {
+    return `
+    <div class="canvas-loader" id="${idPrefix}-canvas-loader">
+        <div class="canvas-loader-inner">
+            <div class="canvas-loader-header">
+                ${INK_LOADER}
+                <span class="loading-text">${text}<span class="dot">．</span><span class="dot">．</span><span class="dot">．</span></span>
+            </div>
+            <div class="canvas-skel-heading"></div>
+            <div class="canvas-skel-row"></div>
+            <div class="canvas-skel-row"></div>
+            <div class="canvas-skel-row"></div>
+            <div class="canvas-skel-heading"></div>
+            <div class="canvas-skel-row"></div>
+            <div class="canvas-skel-row"></div>
+        </div>
+    </div>`;
+}
+
 // 將圖示注入首頁卡片與頂部選單（在 DOM 就緒後執行一次）
 function injectStaticIcons() {
     document.querySelectorAll("[data-icon]").forEach((el) => {
@@ -852,6 +875,8 @@ function renderReportPage(container) {
             <div class="error-msg" id="report-error"></div>
         </div>
 
+        ${buildCanvasLoader("report", "卓編正在提筆潤稿")}
+
         <div class="panel result-panel" id="report-result-panel">
             <h4>${ICONS.done}潤稿結果</h4>
             <div class="result-box" id="report-result-box"></div>
@@ -869,6 +894,18 @@ function renderReportPage(container) {
 
     bindDraftAutosave("report");
     checkDraftAndPrompt("report", "report-draft-banner");
+}
+
+// 統一控制大面積沉浸式載入區塊（canvas-loader）的顯示／隱藏
+function toggleCanvasLoader(idPrefix, show) {
+    const el = document.getElementById(`${idPrefix}-canvas-loader`);
+    if (!el) return;
+    if (show) {
+        el.classList.add("show");
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } else {
+        el.classList.remove("show");
+    }
 }
 
 async function handleReportSubmit() {
@@ -892,6 +929,7 @@ async function handleReportSubmit() {
     submitBtn.disabled = true;
     loadingEl.classList.add("show");
     resultPanel.classList.remove("show");
+    toggleCanvasLoader("report", true);
     resetDiffView("report", "report-diff-toggle", "report-diff-box");
 
     const systemPrompt = intensity === "light"
@@ -937,6 +975,7 @@ ${buildRulesPromptFragment()}
     } finally {
         submitBtn.disabled = false;
         loadingEl.classList.remove("show");
+        toggleCanvasLoader("report", false);
     }
 }
 
@@ -1016,6 +1055,8 @@ function renderInterviewPage(container) {
             <div class="error-msg" id="interview-error"></div>
         </div>
 
+        ${buildCanvasLoader("interview", "卓編正在細細品讀稿件")}
+
         <div class="panel result-panel" id="interview-result-panel">
             <h4>${ICONS.seal}備選主標題（請點選一則套用）</h4>
             <div class="title-options" id="interview-title-options"></div>
@@ -1059,6 +1100,7 @@ async function handleInterviewSubmit() {
     submitBtn.disabled = true;
     loadingEl.classList.add("show");
     resultPanel.classList.remove("show");
+    toggleCanvasLoader("interview", true);
     resetDiffView("interview", "interview-diff-toggle", "interview-diff-box");
 
     const systemPrompt = intensity === "light"
@@ -1110,6 +1152,7 @@ TITLE3: 第三個備選標題
     } finally {
         submitBtn.disabled = false;
         loadingEl.classList.remove("show");
+        toggleCanvasLoader("interview", false);
     }
 }
 
@@ -1246,6 +1289,8 @@ function renderDmPage(container) {
             <div class="error-msg" id="dm-error"></div>
         </div>
 
+        ${buildCanvasLoader("dm", "卓編正在構思文案")}
+
         <div class="panel result-panel" id="dm-result-panel">
             <h4>${ICONS.done}DM 文案</h4>
             <div class="result-box" id="dm-result-box"></div>
@@ -1284,6 +1329,7 @@ async function handleDmSubmit() {
     submitBtn.disabled = true;
     loadingEl.classList.add("show");
     resultPanel.classList.remove("show");
+    toggleCanvasLoader("dm", true);
 
     const systemPrompt = `你是「卓師姊」，法鼓山榮譽董事會的資深編輯，擅長撰寫活動 DM 宣傳文案，文風溫潤、莊重，帶有法鼓禪風。
 
@@ -1316,6 +1362,7 @@ ${buildRulesPromptFragment()}
     } finally {
         submitBtn.disabled = false;
         loadingEl.classList.remove("show");
+        toggleCanvasLoader("dm", false);
     }
 }
 

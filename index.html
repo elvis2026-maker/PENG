@@ -1223,6 +1223,131 @@
             }
         }
 
+        /* ================= V09：大面積沉浸式審稿載入區塊 =================
+           取代／補強原本按鈕旁的小型 loading-indicator，在「結果即將出現」的位置
+           鋪一整塊卡片大小的動畫區，延續墨暈＋金色柔光呼吸的品牌語彙，
+           並疊加多色流光骨架條，讓「大神正在潤稿」的存在感大幅提升。 */
+        .canvas-loader {
+            display: none;
+            position: relative;
+            border-radius: 16px;
+            padding: 32px 28px;
+            margin-bottom: 24px;
+            overflow: hidden;
+            background-color: #fbfaf6;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+        }
+
+        .canvas-loader.show {
+            display: block;
+        }
+
+        /* 背板：大範圍的金色柔光呼吸暈染，鋪滿整個載入區塊，呼應小型墨暈動畫的光暈語彙 */
+        .canvas-loader::before {
+            content: '';
+            position: absolute;
+            inset: -30%;
+            background: radial-gradient(circle at 30% 25%, rgba(212, 165, 55, 0.28), transparent 55%),
+                        radial-gradient(circle at 75% 70%, rgba(26, 92, 58, 0.16), transparent 55%),
+                        radial-gradient(circle at 50% 100%, rgba(139, 105, 20, 0.14), transparent 60%);
+            animation: canvas-glow-breathe 3.2s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes canvas-glow-breathe {
+            0%, 100% { opacity: 0.6; transform: scale(0.96); }
+            50% { opacity: 1; transform: scale(1.04); }
+        }
+
+        .canvas-loader-inner {
+            position: relative;
+            z-index: 1;
+        }
+
+        .canvas-loader-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+
+        /* 標頭使用放大版的 ink-brush 動畫（同一組 SVG markup，靠 modifier class 放大尺寸） */
+        .canvas-loader .ink-brush {
+            width: 52px;
+            height: 52px;
+        }
+
+        .canvas-loader-header .loading-text {
+            font-size: 15.5px;
+            font-weight: 700;
+        }
+
+        /* 骨架流光條：模擬文章逐行浮現，寬度交錯營造真實段落感 */
+        .canvas-skel-row {
+            height: 14px;
+            border-radius: 7px;
+            margin-bottom: 12px;
+            background: linear-gradient(
+                90deg,
+                #ede6d3 0%,
+                #f3d98b 18%,
+                #cdeadb 36%,
+                #e8c98a 54%,
+                #dcefe1 72%,
+                #f3d98b 90%,
+                #ede6d3 100%
+            );
+            background-size: 300% 100%;
+            animation: canvas-skel-shimmer 2.6s ease-in-out infinite;
+            opacity: 0.85;
+        }
+
+        .canvas-skel-row:nth-child(1) { width: 92%; animation-delay: 0s; }
+        .canvas-skel-row:nth-child(2) { width: 100%; animation-delay: 0.15s; }
+        .canvas-skel-row:nth-child(3) { width: 78%; animation-delay: 0.3s; }
+        .canvas-skel-row:nth-child(4) { width: 95%; animation-delay: 0.45s; margin-top: 8px; }
+        .canvas-skel-row:nth-child(5) { width: 65%; animation-delay: 0.6s; }
+        .canvas-skel-row:nth-child(6) { width: 88%; animation-delay: 0.75s; }
+
+        @keyframes canvas-skel-shimmer {
+            0% { background-position: 0% 0; }
+            100% { background-position: -300% 0; }
+        }
+
+        /* 段落間留白的小標題骨架（較短、較粗，模擬「■ 小標題」浮現） */
+        .canvas-skel-heading {
+            height: 16px;
+            width: 34%;
+            border-radius: 8px;
+            margin-bottom: 14px;
+            margin-top: 4px;
+            background: linear-gradient(90deg, #d4a537, #1a5c3a, #8B6914, #d4a537);
+            background-size: 300% 100%;
+            animation: canvas-skel-shimmer 2.6s ease-in-out infinite;
+            opacity: 0.9;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .canvas-loader::before {
+                animation: none;
+                opacity: 0.5;
+            }
+
+            .canvas-skel-row,
+            .canvas-skel-heading {
+                animation: none;
+                background: #e9e2ce;
+                opacity: 0.7;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .canvas-loader {
+                padding: 24px 18px;
+            }
+        }
+
         .error-msg {
             display: none;
             background-color: #fdf2f1;
@@ -1550,7 +1675,7 @@
     </main>
 
     <footer>
-        Elvis 程式設計 ‧ 艾維斯資訊 IT‧ V08‧2026-07-30
+        Elvis 程式設計 ‧ 艾維斯資訊 IT‧ V09‧2026-07-30
     </footer>
 
     <!-- V5：檔案匯入匯出用 -->
