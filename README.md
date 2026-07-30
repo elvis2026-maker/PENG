@@ -1,84 +1,101 @@
-# 卓編數位書房 — 前端（GitHub Pages 靜態站）
+# 卓編數位書房 (Digital Editor Zhuo) V7.0
 
-## 目錄結構
+艾維斯資訊顧問 IT ‧ Elvis 程式設計
+
+法鼓山榮譽董事會 AI 編輯代理人，將活動報導潤稿、人物專訪提煉、活動 DM 文案撰寫標準化，並用「大神的便條紙」規則庫確保全組文宣品質一致。
+
+## 這是兩個獨立專案
 
 ```
-frontend-project/
-├── index.html    # 主頁面（四功能票卡選單 + 四個子頁面容器）
-├── app.js        # 前端邏輯（頁面切換、System Prompt 組合、呼叫 Worker API）
-├── logo.png      # Elvis IT 品牌 Logo
-└── README.md     # 本檔案
+卓編數位書房-V2/
+├── frontend-project/      # 前端靜態站（部署到 GitHub Pages）
+│   ├── index.html
+│   ├── app.js
+│   ├── logo.png
+│   └── README.md           ← 前端部署說明
+│
+└── worker-project/         # Cloudflare Worker（AI 代理 + 規則庫 KV）
+    ├── src/index.js
+    ├── wrangler.toml
+    ├── package.json
+    ├── .gitignore
+    ├── .dev.vars.example
+    └── README.md            ← Worker 部署說明（wrangler CLI）
 ```
 
-無建置流程、無框架依賴，三個檔案（`index.html` / `app.js` / `logo.png`）放在同一層即可直接部署到 GitHub Pages 或任何靜態主機。V5 起，`index.html` 額外從兩個公開 CDN 載入兩支 `<script>`（`mammoth.js` 用於讀取 Word 檔、`docx` 用於匯出 Word 檔），詳見下方「V5 新增：Word 檔匯入匯出」。
+兩者各自是完整、可獨立進版控的專案（各自的 `README.md` 有完整部署步驟），中間只靠一個網址銜接：
 
-## 串接後端
-
-這份前端需要搭配另一個 Worker 專案（`worker-project/`，見該專案 README 的部署步驟）。
-
-Worker 部署完成、拿到正式網址後，打開 `app.js`，修改最上方這一行：
-
-```js
-const WORKER_BASE_URL = "https://zhuo-editor-proxy.<your-subdomain>.workers.dev";
+```
+frontend-project/app.js 裡的 WORKER_BASE_URL
+        ↓ 必須等於
+worker-project 部署後拿到的正式網址
 ```
 
-## 示範模式
+## 建議部署順序
 
-`app.js` 會偵測 `WORKER_BASE_URL` 是否仍是預設佔位字串，若是，自動切換為示範模式：
+1. **先部署 `worker-project/`**（見該資料夾 README，`wrangler deploy` 即可），拿到正式網址
+2. 把網址填入 `frontend-project/app.js` 的 `WORKER_BASE_URL`
+3. **再部署 `frontend-project/`** 到 GitHub Pages（見該資料夾 README）
 
-- 介面與流程完全可操作
-- 卓編的回覆為模擬文字（不會真的呼叫 API）
-- 便條紙規則庫只存在瀏覽器記憶體（重新整理會重置為三筆示範資料）
+## 為什麼要拆成兩個專案、中間夾一個 Worker？
 
-方便在 Worker 尚未部署完成前，先確認介面與互動流程是否符合需求。
+GitHub Pages 是純靜態站，任何人可檢視原始碼；如果 Gemini API Key 直接寫在前端，等於公開給所有人。`worker-project` 的存在就是把 Key 藏在 Cloudflare 後端（Secrets），前端只呼叫自己的 Worker 網址，並內建三組備援 Key 自動 failover（額度用盡自動切換下一組）。便條紙規則庫也一併放在 Worker 的 KV 儲存，讀寫都不需曝光任何憑證。
 
-## 部署到 GitHub Pages
+## 核心功能
 
-1. 建立一個 GitHub repository
-2. 把 `index.html`、`app.js`、`logo.png` 上傳到 repo 根目錄（或 `/docs` 資料夾，視你的 Pages 設定）
-3. repo → Settings → Pages → 選擇對應分支/資料夾 → Save
-4. 幾分鐘後即可透過 `https://<你的帳號>.github.io/<repo名稱>/` 存取
+| 功能 | 說明 |
+|---|---|
+| 潤稿中心 - 活動報導 | 梳理人事時地物、去贅字、自動加小標題 |
+| 潤稿中心 - 人物專訪 | 萃取學佛因緣／護法願心，產出 3 個禪意備選標題 |
+| 文案中心 - 活動 DM | 起承轉合架構，自動生成宣傳文案 |
+| 大神的便條紙 | 規則庫管理，其餘三功能即時套用啟用中的規則 |
 
-## 四個功能頁面對應的程式區塊（app.js）
+## 版本歷史
 
-| 功能 | render 函式 | 送出處理函式 |
-|---|---|---|
-| 活動報導潤稿 | `renderReportPage` | `handleReportSubmit` |
-| 人物專訪潤稿 | `renderInterviewPage` | `handleInterviewSubmit` |
-| 活動 DM 撰寫 | `renderDmPage` | `handleDmSubmit` |
-| 大神的便條紙 | `renderRulesPage` | `handleAddRule` / `handleToggleRule` / `handleDeleteRule` / `handleAnalyzeDiff`（V6 新增，見下方說明） |
+### V07（2026-07-30）
 
-每個「送出處理函式」內都有組 `systemPrompt` 的邏輯，其中會呼叫 `buildRulesPromptFragment()` 動態取得目前啟用中的便條紙規則並安插進去——這是四個功能共用規則庫的關鍵函式，如果要調整卓編潤稿的邏輯或語氣，直接修改對應函式裡的 `systemPrompt` 字串即可。
+手機版介面調整與視覺優化，僅調整 `frontend-project/`（`worker-project/` 未變動，無需重新部署）：
 
-實際呼叫 Worker（或示範模式假回覆）的統一入口是 `askZhuo()`（V2 版原名 `callAI()`，V3 更名以配合「卓編親自審稿」的語氣調整，行為未變）。
+- **修正手機版頂部選單需要橫向滑動的問題**：原本 5 個選單項目（首頁／活動報導／人物專訪／活動 DM／大神的便條紙）在窄螢幕會超出可視範圍，需要左右滑動才能看到全部；現在改為 5 個項目平均分配寬度、一次全部呈現在同一行，不需滑動即可看到並點擊任何一個。文字統一不換行（`white-space: nowrap`），並隨螢幕寬度分兩段微調：760px 以下先縮小字級與間距、隱藏副標題「DIGITAL EDITOR ZHUO」；400px 以下（較舊的小尺寸手機）進一步隱藏選單圖示、只留文字，確保五個字的項目名稱（如「大神的便條紙」）都能完整顯示不被截斷或擠壓變形。
+- **「知識庫已連線」文字膠囊改為單純燈號**：原本常駐顯示的文字膠囊（如圖片所示，會佔用不少版面、手機上更明顯），現在改為一顆直徑 30px 的圓形燈號，用顏色辨識狀態即可：綠色＝知識庫已連線、紅色＝連線異常、灰色＝示範模式（尚未串接 Worker），並帶有輕微脈動動畫提示「這是即時狀態」（已對 `prefers-reduced-motion` 使用者停用動畫）。完整文字說明移到滑鼠 hover 時顯示的提示（桌機），手機則改為點一下燈號會彈出文字小泡泡、2 秒後自動收起，不需要一直佔用畫面空間。
+- **本次未變動邏輯與資料流**：連線狀態的判斷時機、`DEMO_MODE` 偵測、規則庫讀寫等原有行為完全不變，純粹是呈現方式的調整。
 
-## V3 新增：圖示庫與動畫（app.js 開頭）
+### V06（2026-07-30）
 
-- `ICONS`：首頁四張卡片大圖示、內文小圖示（返回、送出、完成勾選、標題印記、新增）的原創 SVG 定義，皆為手繪水墨線條風格。要更換或新增圖示，直接編輯對應的 SVG 字串即可，不需要額外的圖示套件或字型。
-- `NAV_ICONS`：頂部導覽選單用的小尺寸版本圖示。
-- `INK_LOADER`：四個送出按鈕旁「墨滴暈染＋毛筆筆觸」載入動畫的 HTML 片段，動畫效果本身定義在 `index.html` 的 `<style>` 區塊（`.ink-brush` / `@keyframes ink-bloom` / `@keyframes brush-stroke`）。
-- `injectStaticIcons()` / `updateNavActiveState()`：頁面載入與切換時，分別負責把圖示塞進 `data-icon` / `data-icon-inline` 容器、以及讓頂部選單反白對應項目，皆在 `DOMContentLoaded` 與 `showPage()` 內呼叫，不需手動觸發。
+新增「潤稿前後對照 → 自動歸納便條紙規則」功能，僅調整 `frontend-project/`（`worker-project/` 未變動，無需重新部署）：
 
-LOGO（`logo.png`）不在這套圖示庫內，維持原檔案不變。
+- **大神的便條紙頁面新增比對區塊**：在頁面最上方新增「從潤稿前後對照，自動歸納規則」，可貼上文字或直接匯入 `.docx`，分別填入「潤稿前（初稿原文）」與「潤稿後（卓師姊定稿）」兩欄，按下「分析並歸納規則」後，卓編會比對兩者差異，萃取出有規律、可重複套用的修改習慣（例如固定用詞替換），自動整理成規則文字。
+- **全自動寫入，不需人工確認**：分析出來的規則會直接寫入便條紙資料庫（KV），不會先跳出讓你逐條勾選採用——這是刻意的設計，符合快速累積知識庫的需求，但也代表寫入前不會再讓你過目，建議偶爾到便條紙清單檢查一下自動歸納出來的內容是否合理，不合適的可以直接刪除。
+- **固定標記「自動歸納」分類**：所有透過此功能新增的規則，分類一律標記為「自動歸納」（介面上以紫色標籤呈現），跟「詞彙提醒」「當期主題」「排版規定」等人工新增的規則做視覺區分，方便日後追蹤來源、也方便之後要整批檢視或刪除自動產生的規則。
+- **自動略過重複規則**：每次分析前會先比對目前便條紙裡「內容完全相同」的規則，重複的會自動略過、不重複新增，分析完成後會顯示「新增幾條、略過幾條重複」的摘要。請注意這裡的比對是「文字完全一樣」才算重複，如果卓編兩次分析出來的規則文字略有出入（即使意思相同），仍會被視為不同規則而新增，需要的話可自行到清單裡刪除多餘的。
+- **一次僅支援一組前後對照**：目前設計是一次分析一篇文章的潤稿前後版本；若要處理多篇，需要逐篇重複操作。
+- 此功能同樣沿用 V5 的 Word 檔匯入邏輯（`mammoth.js`），可直接匯入 `.docx`，不需要自己複製貼上文字。
 
-## V5 新增：Word 檔匯入匯出
+### V05（2026-07-30）
 
-三項潤稿／文案功能（活動報導、人物專訪、活動 DM）都新增了「匯入 Word 檔」與「匯出 Word 檔」，全部在瀏覽器端運算，不會經過 Worker：
+新增檔案匯入／匯出功能，僅調整 `frontend-project/`（`worker-project/` 未變動，無需重新部署）：
 
-- **匯入**：使用 [mammoth.js](https://github.com/mwilliamson/mammoth.js)（`mammoth.extractRawText`）把使用者上傳的 `.docx` 轉成純文字，寫入對應的 textarea。對應函式：`handleWordImport(inputEl, textareaId, statusElId)`。
-- **匯出**：使用 [docx](https://docx.js.org/)（`Packer.toBlob`）把潤稿結果組成 `.docx`，透過 blob URL 觸發瀏覽器下載。對應函式：`exportTextAsWord({ title, bodyText, filename })`；人物專訪頁面另有 `exportInterviewAsWord()` 包裝，會自動帶入目前選定的備選標題。
-- 兩支函式都定義在 `app.js` 的「V5：Word 檔匯入 / 匯出」區塊，緊接在 `copyToClipboard` 之後。
-- **外部依賴**：`index.html` 新增了兩個 `<script src>`（cdnjs 的 `mammoth.browser.min.js`、jsDelivr 的 `docx` UMD build）。這兩支腳本由**使用者的瀏覽器**直接向 CDN 下載，與 Worker 無關；如果使用者所在的網路環境有網域白名單限制，需要放行 `cdnjs.cloudflare.com` 與 `cdn.jsdelivr.net`，否則匯入／匯出按鈕會顯示「元件尚未載入完成」的錯誤訊息。
-- 目前只支援 `.docx`；上傳其他格式（如舊版 `.doc`）會顯示提示訊息，請對方先用 Word 另存新檔為 `.docx` 再上傳。
-- 潤稿結果中的「■ 小標題」記號，匯出時會自動轉換為 Word 文件內的粗體小標題（並移除 ■ 符號），其餘段落維持原樣。
+- **匯入 Word 檔（.docx）**：活動報導、人物專訪、活動 DM 三項功能，在初稿欄位上方都新增「匯入 Word 檔」按鈕，可直接上傳寫手提供的 `.docx` 檔案，系統會自動擷取純文字貼入欄位（活動 DM 對應到「活動宗旨／目標對象」欄位）。此功能使用 `mammoth.js` 完全在瀏覽器端運算，檔案內容不會經過 Worker 或任何伺服器。目前僅支援 `.docx`；若寫手提供的是舊版 `.doc`，需請對方先在 Word 另存為 `.docx` 再上傳。
+- **匯出 Word 檔（.docx）**：三項功能的潤稿／文案結果，都新增「匯出 Word 檔」按鈕，可將結果下載為 `.docx` 檔案存檔或轉發。人物專訪會自動帶入目前選定的備選標題作為文件標題；潤稿結果中的「■ 小標題」會轉換為 Word 內的粗體小標題（移除 ■ 符號）。此功能使用 `docx`（dolanmiu/docx）套件，同樣完全在瀏覽器端運算。
+- **新增外部 CDN 依賴**：`index.html` 新增兩個 `<script>` 標籤，從 `cdnjs.cloudflare.com` 載入 `mammoth.browser.min.js`，從 `cdn.jsdelivr.net` 載入 `docx` 的瀏覽器版（UMD build）。**部署後請確認你的網路環境（或使用者的瀏覽器網路）可以連線到這兩個 CDN 網域**，否則匯入／匯出按鈕會顯示「元件尚未載入完成」的訊息。若公司网路有網域白名單限制，需請 IT 將這兩個網域加入允許清單。
 
-## V6 新增：潤稿前後對照 → 自動歸納便條紙規則
+### V04（2026-07-30）
 
-「大神的便條紙」頁面（`renderRulesPage`）最上方新增一個比對區塊，對應函式：`handleAnalyzeDiff()`。
+修正兩個回報的問題，`worker-project/` 和 `frontend-project/` **都要重新部署**：
 
-- **運作方式**：使用者貼上（或匯入 `.docx`）同一篇文章的「潤稿前」與「潤稿後」文字，送給卓編（透過既有的 `askZhuo()` / `/api/generate`，沒有新增 Worker 路由），並在 `systemPrompt` 裡要求它只用 JSON 陣列格式回覆，每一則是 `{ "content": "規則文字" }`。
-- **解析容錯**：`parseDiffAnalysisResult()` 負責解析卓編回傳的文字，即使卓編不小心加了 ```` ```json ```` 包裹或前後多了幾句說明文字，也能正確擷取出 JSON 陣列；真的解析失敗才會拋出錯誤讓使用者重試。
-- **重複比對邏輯**：以 `rulesCache` 目前的規則內容（文字完全相同）做比對，重複的直接跳過，只有新內容才會呼叫新增。這段邏輯抽成共用函式 `createRuleOnServer(content, category)`，`handleAddRule()`（手動新增）跟 `handleAnalyzeDiff()`（自動歸納）都共用同一支，避免兩處邏輯各自維護。
-- **固定分類**：所有由此功能新增的規則，分類寫死為「自動歸納」（新增了對應的 CSS `.rule-tag.tag-auto`，以及下拉選單新增同名選項），不會沿用卓編自己判斷的分類，方便使用者一眼區分「這是自動歸納出來的」還是「這是人工手動新增的」。
-- **完全自動寫入、無需人工確認**：這是刻意的設計決策——分析完成後直接呼叫 `createRuleOnServer()` 寫入 KV，沒有中間的「請使用者勾選採用」步驟。如果要改回需要人工確認才寫入，可以在 `handleAnalyzeDiff()` 裡，把「呼叫 `createRuleOnServer` 的迴圈」改成先把 `toCreate` 陣列渲染成可勾選的清單，等使用者按確認後才逐一寫入。
-- 一次僅支援一組「潤稿前／潤稿後」對照；沒有批次上傳多組的功能。
+- **修正「大神的便條紙」新增失敗／知識庫連線異常**：問題根源是 `worker-project/wrangler.toml` 裡的 KV Namespace 綁定整段被註解掉，導致 Worker 裡 `env.RULES_KV` 是 `undefined`，只要呼叫便條紙的讀取／新增／刪除 API 就會拋出例外。已將該區塊取消註解並補上設定說明。**部署前請務必參照 `worker-project/wrangler.toml` 內的註解，填入你自己的 KV namespace id（執行 `wrangler kv namespace create RULES_KV` 取得），否則此問題仍會發生。**
+- **新增「潤稿幅度」選項（活動報導、人物專訪皆有）**：預設為「輕度」——只修正錯別字、標點、固定用語錯誤（例如「聖嚴師父的說法」固定用「開示」而非「示導」等大神便條紙裡設定的規則），並盡量維持原文句構與段落，不做大範圍改寫；如需要原本 V03 那種完整重新梳理架構、去贅字的潤飾，可切換為「完整潤飾」。此選項就位於各功能頁「期望字數」下方的下拉選單。
+
+### V03（2026-07-30）
+
+僅調整 `frontend-project/`（`worker-project/` 未變動，無需重新部署）：
+
+- **選單圖示全面重繪**：首頁四張卡片與內文的圖示（返回、送出、完成勾選、標題印記、新增等）改為原創水墨線條風格 SVG，取代原本的 Google Material Symbols 字型圖示；圖示尺寸放大（卡片圖示由 24px 提升為 34px，容器由 48px 提升為 64px）。LOGO 維持原本的 `logo.png`，未變動。
+- **審稿動畫升級**：四個送出按鈕旁的載入提示，從單純的圓圈 spinner 改為「墨滴暈染＋毛筆筆觸」動畫（純 CSS + SVG，無額外套件），並支援 `prefers-reduced-motion`。
+- **文字語氣調整**：移除介面文字與程式註解中所有「AI」字眼，呼叫函式由 `callAI()` 更名為 `askZhuo()`，錯誤訊息、示範模式說明文字都改為「卓編」第一人稱視角的說法，讓使用者感覺是卓編本人在審稿，而非機器生成。
+- **頂部選單（視覺升級）**：Header 下方新增一列導覽選單（首頁／活動報導／人物專訪／活動 DM／大神的便條紙），會依目前所在頁面反白對應項目；功能上仍是原本的四張卡片切換模式，未新增獨立頁面內容。
+- **修正**：清除 V2 版 `app.js` 中殘留的 `PLACEHOLDER_REPORT_SECTION` 字串（舊版打包流程遺留的問題，不影響功能執行但屬於程式碼異物，已移除）。
+
+### V02（2026-07-30）
+
+初版拆分為 `frontend-project` 與 `worker-project` 兩個獨立專案的版本。
