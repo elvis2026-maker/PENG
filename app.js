@@ -1,5 +1,5 @@
 /**
- * 卓編數位書房 V2 - 前端邏輯
+ * 卓編數位書房 V3 - 前端邏輯
  * ------------------------------------------------
  * 請先依照 SETUP.md 完成 Cloudflare Worker 部署，
  * 並把下方 WORKER_BASE_URL 換成你自己的 Worker 網址。
@@ -9,13 +9,132 @@
 // ⚠️ 請將此網址換成你部署好的 Cloudflare Worker 網址（見 SETUP.md）
 const WORKER_BASE_URL = "https://zhuo-editor-proxy.YOUR-SUBDOMAIN.workers.dev";
 
-// 若尚未設定 Worker 網址，系統會使用「示範模式」，以假資料模擬 AI 回覆，
+// 若尚未設定 Worker 網址，系統會使用「示範模式」，以假資料展示完整流程，
 // 方便你在正式串接前先體驗完整互動流程。
 const DEMO_MODE = WORKER_BASE_URL.includes("YOUR-SUBDOMAIN");
 
 // 全域狀態
 let rulesCache = [];
 let currentInterviewTitles = [];
+
+// ================= 自繪圖示庫（手繪水墨線條風格，取代通用素材圖示） =================
+// 所有選單／功能圖示皆為原創 SVG 線條繪製，呼應法鼓禪風的溫潤筆觸；
+// LOGO 仍固定使用 logo.png，不在此列。
+const ICONS = {
+    // 活動報導：一張攤開的稿紙，右上角一筆勾勒的墨線，象徵潤飾筆觸
+    report: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M9 6.5H23.5L28 11V29.5H9V6.5Z" stroke="white" stroke-width="1.8" stroke-linejoin="round"/>
+        <path d="M23 6.5V11H28" stroke="white" stroke-width="1.8" stroke-linejoin="round"/>
+        <path d="M13 16.5H23" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M13 20.5H23" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M13 24.5H19" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M25.5 15.5C26.5 14 27.8 14.6 27.4 16C27 17.4 24.6 19.4 23.5 20" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+    </svg>`,
+
+    // 人物專訪：兩個相對而談的圓潤剪影，中間一朵簡化蓮花花瓣象徵禪意主標
+    interview: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="13" r="4" stroke="white" stroke-width="1.8"/>
+        <path d="M6 27C6 22 8.5 19.5 12 19.5C15.5 19.5 18 22 18 27" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M24 8C25.2 9.4 25.2 11 24 12.4" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M27 6C29 8 29 12.4 27 14.6" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M20.5 27C20.5 22.6 22.6 20 26 20C29.4 20 31.5 22.6 31.5 27" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="1.5 3"/>
+        <circle cx="26" cy="15" r="3.2" stroke="white" stroke-width="1.6"/>
+    </svg>`,
+
+    // 活動 DM：一支揚起的宣傳旗幟／喇叭花瓣，三道弧線表示訊息擴散
+    dm: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 13L23 8V22.5L8 19V13Z" stroke="white" stroke-width="1.8" stroke-linejoin="round"/>
+        <path d="M8 13H5.5V19H8" stroke="white" stroke-width="1.8" stroke-linejoin="round"/>
+        <path d="M10.5 19.5L12 27" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M26 12.5C28 14 28 16.5 26 18" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M29 9.5C32.5 12.5 32.5 18 29 21" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>`,
+
+    // 便條紙：一枚繫著細繩的木牌／便箋，加上一小截墨筆，呼應「大神的便條紙」
+    rules: `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M11 9.5C11 8.4 11.9 7.5 13 7.5H23C24.1 7.5 25 8.4 25 9.5V27.5C25 28.3 24.1 28.8 23.4 28.3L18 24.5L12.6 28.3C11.9 28.8 11 28.3 11 27.5V9.5Z" stroke="white" stroke-width="1.8" stroke-linejoin="round"/>
+        <path d="M14.5 13H21.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M14.5 16.5H21.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M14.5 20H18.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>`,
+
+    // 返回：回鋒筆觸的弧形箭頭
+    back: `<svg class="icon-inline" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M14.5 6.5C10.5 8 7.5 10 7 12C7.5 14 10.5 16 14.5 17.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M10.5 8.2L7 12L10.5 15.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`,
+
+    // 呈上（送出）：毛筆筆尖，取代「auto_awesome」的通用星芒圖示
+    submit: `<svg class="icon-inline icon-14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M18.5 4.5C15 6.5 9.5 12 7 17.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M5.5 19.5C6 18 6.8 17 8 16.5C8.6 17.3 8.6 18.3 8 19C7.2 19.8 6.2 19.8 5.5 19.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M15.5 3.5C16.5 3 17.7 3.2 18.5 4.2C19 5 18.8 6.2 18 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>`,
+
+    // 完成勾選：圓潤的印章式勾勒
+    done: `<svg class="icon-inline" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M8.2 12.3L10.6 14.7L15.6 9.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`,
+
+    // 標題／印記：一枚簡化印章造型，取代 workspace_premium
+    seal: `<svg class="icon-inline" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="5.5" y="5.5" width="13" height="13" rx="2.5" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M9 12L11 14.5L15.5 9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`,
+
+    // 新增：一支簡潔的加號筆畫
+    add: `<svg class="icon-inline icon-14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 5.5V18.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M5.5 12H18.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>`,
+
+    // 首頁選單：簡化的合十屋簷造型
+    home: `<svg class="icon-inline icon-14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4.5 11.5L12 5L19.5 11.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M6.5 10V18.5H17.5V10" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+        <path d="M10 18.5V14H14V18.5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>`,
+};
+
+// 選單／內文用的小尺寸圖示（沿用同一套線條，line-only 版本）
+const NAV_ICONS = {
+    home: ICONS.home,
+    report: `<svg class="icon-inline icon-14" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 6.5H23.5L28 11V29.5H9V6.5Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M23 6.5V11H28" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M13 20.5H23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+    interview: `<svg class="icon-inline icon-14" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="13" cy="13" r="4.5" stroke="currentColor" stroke-width="2.2"/><path d="M6 27C6 21.8 9 19 13 19C17 19 20 21.8 20 27" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>`,
+    dm: `<svg class="icon-inline icon-14" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 13L28 6V26L8 19V13Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M8 13H5V19H8" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>`,
+    rules: `<svg class="icon-inline icon-14" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11 9.5C11 8.4 11.9 7.5 13 7.5H23C24.1 7.5 25 8.4 25 9.5V27.5C25 28.3 24.1 28.8 23.4 28.3L18 24.5L12.6 28.3C11.9 28.8 11 28.3 11 27.5V9.5Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>`,
+};
+
+// 審稿中動畫（毛筆墨韻）：三圈暈染墨紋 + 一筆緩緩畫出的筆觸
+const INK_LOADER = `
+    <div class="ink-brush">
+        <svg viewBox="0 0 40 40">
+            <circle class="ink-ring" cx="20" cy="24" r="3"></circle>
+            <circle class="ink-ring" cx="20" cy="24" r="3"></circle>
+            <circle class="ink-ring" cx="20" cy="24" r="3"></circle>
+            <path class="brush-tip" d="M9 14C13 10 18 8 25 9" />
+        </svg>
+    </div>`;
+
+// 將圖示注入首頁卡片與頂部選單（在 DOM 就緒後執行一次）
+function injectStaticIcons() {
+    document.querySelectorAll("[data-icon]").forEach((el) => {
+        const key = el.getAttribute("data-icon");
+        if (ICONS[key]) el.innerHTML = ICONS[key];
+    });
+    document.querySelectorAll("[data-icon-inline]").forEach((el) => {
+        const key = el.getAttribute("data-icon-inline");
+        if (NAV_ICONS[key]) el.innerHTML = NAV_ICONS[key];
+    });
+}
+
+// 依目前頁面，將頂部選單對應項目標記為 active（純視覺呼應，四卡片流程不變）
+function updateNavActiveState(pageId) {
+    document.querySelectorAll(".nav-link").forEach((el) => {
+        el.classList.toggle("active", el.getAttribute("data-nav") === pageId);
+    });
+}
 
 // ================= 頁面切換 =================
 function showPage(pageId) {
@@ -37,6 +156,7 @@ function showPage(pageId) {
         loadRules(); // 每次進入便條紙頁都重新拉取最新規則
     }
 
+    updateNavActiveState(pageId);
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -95,7 +215,7 @@ function setConnectionStatus(online) {
     }
 }
 
-// 把目前啟用中的規則組成一段文字，安插進送給 AI 的 System Prompt
+// 把目前啟用中的規則組成一段文字，安插進送給卓編的 System Prompt
 function buildRulesPromptFragment() {
     const active = rulesCache.filter((r) => r.is_active);
     if (active.length === 0) return "（目前無特別注意事項）";
@@ -116,11 +236,11 @@ function buildRulesPromptFragment() {
     return text.trim();
 }
 
-// ================= 呼叫 Worker（AI 生成）統一入口 =================
-async function callAI({ systemPrompt, userPrompt, temperature = 0.7 }) {
+// ================= 呼叫 Worker（卓編審稿）統一入口 =================
+async function askZhuo({ systemPrompt, userPrompt, temperature = 0.7 }) {
     if (DEMO_MODE) {
         await sleep(1200);
-        return demoAIResponse(userPrompt);
+        return demoZhuoResponse(userPrompt);
     }
 
     const resp = await fetch(`${WORKER_BASE_URL}/api/generate`, {
@@ -131,7 +251,7 @@ async function callAI({ systemPrompt, userPrompt, temperature = 0.7 }) {
 
     const data = await resp.json();
     if (!resp.ok) {
-        throw new Error(data.error || "AI 服務發生未知錯誤");
+        throw new Error(data.error || "卓編這邊發生未知的問題，請稍後再試");
     }
     return data.text;
 }
@@ -141,17 +261,16 @@ function sleep(ms) {
 }
 
 // 示範模式：假回覆（尚未設定 Worker 網址時，用來體驗完整互動流程）
-function demoAIResponse(userPrompt) {
+function demoZhuoResponse(userPrompt) {
     return `【示範模式輸出】
 
 目前尚未串接真實的 Cloudflare Worker 網址，這是模擬的卓編潤稿結果，方便您預覽介面互動流程。
 
-實際串接後，這裡會顯示 AI 根據您輸入的初稿，依照法鼓禪風、動態套用「大神的便條紙」規則所產出的正式潤稿內容。
+實際串接後，這裡會顯示卓編根據您輸入的初稿，依照法鼓禪風、動態套用「大神的便條紙」規則所產出的正式潤稿內容。
 
 請參考 SETUP.md 完成 Worker 部署，並將 app.js 最上方的 WORKER_BASE_URL 換成您實際的網址，即可切換為正式運作模式。`;
 }
 
-PLACEHOLDER_REPORT_SECTION
 function copyToClipboard(text, btnEl) {
     navigator.clipboard.writeText(text).then(() => {
         const original = btnEl.textContent;
@@ -167,12 +286,12 @@ function renderReportPage(container) {
     container.dataset.rendered = "1";
     container.innerHTML = `
         <div class="back-link" onclick="showPage('home')">
-            <span class="material-symbols-outlined" style="font-size:18px;">arrow_back</span>
+            ${ICONS.back}
             返回首頁
         </div>
 
         <div class="page-header">
-            <div class="icon-box color-green"><span class="material-symbols-outlined">article</span></div>
+            <div class="icon-box color-green icon-sm">${ICONS.report}</div>
             <div>
                 <h2>活動報導 潤飾</h2>
                 <p>梳理人事時地物，去除贅字，並自動加上提綱挈領的小標題</p>
@@ -206,19 +325,19 @@ function renderReportPage(container) {
 
             <div class="btn-row">
                 <button class="btn btn-primary" id="report-submit" onclick="handleReportSubmit()">
-                    <span class="material-symbols-outlined" style="font-size:18px;">auto_awesome</span>
+                    ${ICONS.submit}
                     請卓編過目
                 </button>
                 <div class="loading-indicator" id="report-loading">
-                    <div class="spinner"></div>
-                    卓編正在潤稿中，請稍候……
+                    ${INK_LOADER}
+                    <span class="loading-text">卓編正在提筆潤稿<span class="dot">．</span><span class="dot">．</span><span class="dot">．</span></span>
                 </div>
             </div>
             <div class="error-msg" id="report-error"></div>
         </div>
 
         <div class="panel result-panel" id="report-result-panel">
-            <h4><span class="material-symbols-outlined" style="font-size:18px;">task_alt</span>潤稿結果</h4>
+            <h4>${ICONS.done}潤稿結果</h4>
             <div class="result-box" id="report-result-box"></div>
             <div class="btn-row" style="margin-top:16px;">
                 <button class="btn btn-secondary copy-btn" onclick="copyToClipboard(document.getElementById('report-result-box').textContent, this)">複製全文</button>
@@ -263,7 +382,7 @@ ${buildRulesPromptFragment()}
 請直接輸出潤飾後的完整文章（含小標題），不需要額外說明或前言。`;
 
     try {
-        const result = await callAI({ systemPrompt, userPrompt: draft, temperature: 0.6 });
+        const result = await askZhuo({ systemPrompt, userPrompt: draft, temperature: 0.6 });
         document.getElementById("report-result-box").textContent = result;
         resultPanel.classList.add("show");
         resultPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -281,12 +400,12 @@ function renderInterviewPage(container) {
     container.dataset.rendered = "1";
     container.innerHTML = `
         <div class="back-link" onclick="showPage('home')">
-            <span class="material-symbols-outlined" style="font-size:18px;">arrow_back</span>
+            ${ICONS.back}
             返回首頁
         </div>
 
         <div class="page-header">
-            <div class="icon-box color-green"><span class="material-symbols-outlined">record_voice_over</span></div>
+            <div class="icon-box color-green icon-sm">${ICONS.interview}</div>
             <div>
                 <h2>人物專訪 潤飾</h2>
                 <p>萃取「學佛因緣」與「護法願心」，產出具備禪意的主標題選項</p>
@@ -321,22 +440,22 @@ function renderInterviewPage(container) {
 
             <div class="btn-row">
                 <button class="btn btn-primary" id="interview-submit" onclick="handleInterviewSubmit()">
-                    <span class="material-symbols-outlined" style="font-size:18px;">auto_awesome</span>
+                    ${ICONS.submit}
                     請卓編過目
                 </button>
                 <div class="loading-indicator" id="interview-loading">
-                    <div class="spinner"></div>
-                    卓編正在提煉稿件中，請稍候……
+                    ${INK_LOADER}
+                    <span class="loading-text">卓編正在細細品讀稿件<span class="dot">．</span><span class="dot">．</span><span class="dot">．</span></span>
                 </div>
             </div>
             <div class="error-msg" id="interview-error"></div>
         </div>
 
         <div class="panel result-panel" id="interview-result-panel">
-            <h4><span class="material-symbols-outlined" style="font-size:18px;">workspace_premium</span>備選主標題（請點選一則套用）</h4>
+            <h4>${ICONS.seal}備選主標題（請點選一則套用）</h4>
             <div class="title-options" id="interview-title-options"></div>
 
-            <h4><span class="material-symbols-outlined" style="font-size:18px;">task_alt</span>潤稿結果</h4>
+            <h4>${ICONS.done}潤稿結果</h4>
             <div class="result-box" id="interview-result-box"></div>
             <div class="btn-row" style="margin-top:16px;">
                 <button class="btn btn-secondary copy-btn" onclick="copyInterviewFull()">複製標題＋全文</button>
@@ -387,7 +506,7 @@ TITLE3: 第三個備選標題
 （這裡開始是潤飾後的完整內文，不要重複標題）`;
 
     try {
-        const result = await callAI({ systemPrompt, userPrompt: draft, temperature: 0.75 });
+        const result = await askZhuo({ systemPrompt, userPrompt: draft, temperature: 0.75 });
         parseAndRenderInterviewResult(result);
         resultPanel.classList.add("show");
         resultPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -416,7 +535,7 @@ function parseAndRenderInterviewResult(raw) {
         body = raw.slice(splitIndex + 3).trim();
     }
 
-    // 若解析失敗（AI 未照格式回覆），則整段當作內文顯示，不顯示標題選項
+    // 若解析失敗（卓編這次沒有照格式回覆），則整段當作內文顯示，不顯示標題選項
     currentInterviewTitles = titles;
 
     const optionsEl = document.getElementById("interview-title-options");
@@ -426,7 +545,7 @@ function parseAndRenderInterviewResult(raw) {
                 (title, idx) => `
             <div class="title-option" id="title-opt-${idx}" onclick="selectInterviewTitle(${idx})">
                 <span>${escapeHtml(title)}</span>
-                <span class="material-symbols-outlined">check_circle</span>
+                ${ICONS.done}
             </div>`
             )
             .join("");
@@ -469,12 +588,12 @@ function renderDmPage(container) {
     container.dataset.rendered = "1";
     container.innerHTML = `
         <div class="back-link" onclick="showPage('home')">
-            <span class="material-symbols-outlined" style="font-size:18px;">arrow_back</span>
+            ${ICONS.back}
             返回首頁
         </div>
 
         <div class="page-header">
-            <div class="icon-box color-brown"><span class="material-symbols-outlined">campaign</span></div>
+            <div class="icon-box color-brown icon-sm">${ICONS.dm}</div>
             <div>
                 <h2>活動 DM 撰寫</h2>
                 <p>套用起承轉合架構與聖嚴師父法語，產出適合排版的宣傳文案</p>
@@ -505,19 +624,19 @@ function renderDmPage(container) {
 
             <div class="btn-row">
                 <button class="btn btn-primary" id="dm-submit" onclick="handleDmSubmit()">
-                    <span class="material-symbols-outlined" style="font-size:18px;">auto_awesome</span>
+                    ${ICONS.submit}
                     生成 DM 文案
                 </button>
                 <div class="loading-indicator" id="dm-loading">
-                    <div class="spinner"></div>
-                    卓編正在撰寫文案中，請稍候……
+                    ${INK_LOADER}
+                    <span class="loading-text">卓編正在構思文案<span class="dot">．</span><span class="dot">．</span><span class="dot">．</span></span>
                 </div>
             </div>
             <div class="error-msg" id="dm-error"></div>
         </div>
 
         <div class="panel result-panel" id="dm-result-panel">
-            <h4><span class="material-symbols-outlined" style="font-size:18px;">task_alt</span>DM 文案</h4>
+            <h4>${ICONS.done}DM 文案</h4>
             <div class="result-box" id="dm-result-box"></div>
             <div class="btn-row" style="margin-top:16px;">
                 <button class="btn btn-secondary copy-btn" onclick="copyToClipboard(document.getElementById('dm-result-box').textContent, this)">複製全文</button>
@@ -568,7 +687,7 @@ ${buildRulesPromptFragment()}
 特別注意事項：${notes || "無"}`;
 
     try {
-        const result = await callAI({ systemPrompt, userPrompt, temperature: 0.8 });
+        const result = await askZhuo({ systemPrompt, userPrompt, temperature: 0.8 });
         document.getElementById("dm-result-box").textContent = result;
         resultPanel.classList.add("show");
         resultPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -586,12 +705,12 @@ function renderRulesPage(container) {
     container.dataset.rendered = "1";
     container.innerHTML = `
         <div class="back-link" onclick="showPage('home')">
-            <span class="material-symbols-outlined" style="font-size:18px;">arrow_back</span>
+            ${ICONS.back}
             返回首頁
         </div>
 
         <div class="page-header">
-            <div class="icon-box color-brown"><span class="material-symbols-outlined">edit_note</span></div>
+            <div class="icon-box color-brown icon-sm">${ICONS.rules}</div>
             <div>
                 <h2>大神的便條紙</h2>
                 <p>管理特別注意事項、詞彙提醒與當期主軸，其他三項功能會即時套用啟用中的規則</p>
@@ -613,7 +732,7 @@ function renderRulesPage(container) {
                     </select>
                 </div>
                 <button class="btn btn-primary" onclick="handleAddRule()">
-                    <span class="material-symbols-outlined" style="font-size:18px;">add</span>
+                    ${ICONS.add}
                     新增
                 </button>
             </div>
@@ -742,6 +861,9 @@ async function handleDeleteRule(id) {
 
 // ================= 初始化 =================
 document.addEventListener("DOMContentLoaded", () => {
+    injectStaticIcons();
+    updateNavActiveState("home");
+
     if (DEMO_MODE) {
         setConnectionStatus(false);
         document.getElementById("connectionStatus").textContent = "示範模式（尚未串接 Worker）";

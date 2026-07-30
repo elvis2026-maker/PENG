@@ -5,10 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>卓編數位書房 | 艾維斯資訊顧問 IT</title>
-    <!-- 引入 Google 字體與 Material Icons -->
+    <!-- 引入 Google 字體 -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <!-- V3：已改用自繪 SVG 線條圖示，不再依賴 Material Symbols 字型 -->
 
     <style>
         :root {
@@ -44,15 +43,20 @@
         /* 頂部導覽列 */
         header {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 40px;
+            flex-direction: column;
             background-color: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(8px);
             border-bottom: 1px solid var(--border-color);
             position: sticky;
             top: 0;
             z-index: 100;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 40px;
         }
 
         .logo-section {
@@ -110,6 +114,59 @@
 
         .status-btn.offline::before {
             background-color: var(--danger);
+        }
+
+        /* 次列選單（視覺升級用，對應四項核心功能，仍為單頁卡片切換） */
+        .header-nav {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            padding: 0 40px 10px;
+            border-top: 1px dashed var(--border-color);
+            padding-top: 10px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-link svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        .nav-link:hover {
+            background-color: #f5f1e8;
+            color: var(--ddm-brown);
+        }
+
+        .nav-link.active {
+            background-color: #eef4ef;
+            color: var(--ddm-green);
+            font-weight: 700;
+        }
+
+        @media (max-width: 760px) {
+            .header-nav {
+                overflow-x: auto;
+                justify-content: flex-start;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .nav-link {
+                flex-shrink: 0;
+            }
         }
 
         /* 主要內容區 */
@@ -176,26 +233,76 @@
         }
 
         .icon-box {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
             display: flex;
             justify-content: center;
             align-items: center;
             margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
         }
 
-        .icon-box .material-symbols-outlined {
-            color: white;
-            font-size: 24px;
+        .icon-box svg {
+            width: 34px;
+            height: 34px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 卡片上的圖示加上一圈淡淡墨暈，呼應禪風水墨質感 */
+        .icon-box::after {
+            content: '';
+            position: absolute;
+            inset: -20%;
+            background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.25), transparent 60%);
         }
 
         .color-green {
             background-color: var(--ddm-green);
+            background-image: radial-gradient(circle at 75% 80%, rgba(255, 255, 255, 0.08), transparent 55%);
         }
 
         .color-brown {
             background-color: var(--ddm-brown);
+            background-image: radial-gradient(circle at 75% 80%, rgba(255, 255, 255, 0.08), transparent 55%);
+        }
+
+        .icon-box.icon-sm {
+            width: 48px;
+            height: 48px;
+            border-radius: 13px;
+        }
+
+        .icon-box.icon-sm svg {
+            width: 26px;
+            height: 26px;
+        }
+
+        .card:hover .icon-box {
+            transform: scale(1.05);
+            transition: transform 0.25s ease;
+        }
+
+        /* 內文小圖示（返回箭頭、標題勾選、按鈕圖示等） */
+        .icon-inline {
+            width: 18px;
+            height: 18px;
+            display: inline-block;
+            vertical-align: -3px;
+            flex-shrink: 0;
+        }
+
+        .icon-inline.icon-14 {
+            width: 14px;
+            height: 14px;
+        }
+
+        .icon-inline.icon-20 {
+            width: 20px;
+            height: 20px;
+            vertical-align: -4px;
         }
 
         .card h3 {
@@ -489,21 +596,24 @@
             color: var(--ddm-green);
         }
 
-        .title-option .material-symbols-outlined {
-            font-size: 20px;
+        .title-option svg {
+            width: 20px;
+            height: 20px;
             opacity: 0;
             color: var(--ddm-green);
+            flex-shrink: 0;
+            transition: opacity 0.2s;
         }
 
-        .title-option.selected .material-symbols-outlined {
+        .title-option.selected svg {
             opacity: 1;
         }
 
-        /* Loading */
+        /* Loading：毛筆／墨韻審稿動畫 */
         .loading-indicator {
             display: none;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             color: var(--text-muted);
             font-size: 14px;
             margin-top: 4px;
@@ -513,18 +623,133 @@
             display: flex;
         }
 
-        .spinner {
-            width: 16px;
-            height: 16px;
-            border: 2px solid var(--border-color);
-            border-top-color: var(--ddm-green);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
+        .ink-brush {
+            position: relative;
+            width: 40px;
+            height: 40px;
+            flex-shrink: 0;
         }
 
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
+        .ink-brush svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 墨滴暈染：三圈由深至淺的圓，依序放大淡出，模擬水墨滴落宣紙暈開 */
+        .ink-brush .ink-ring {
+            fill: none;
+            stroke: var(--ddm-green);
+            stroke-width: 2.5;
+            transform-origin: center;
+            animation: ink-bloom 1.8s ease-out infinite;
+        }
+
+        .ink-brush .ink-ring:nth-child(2) {
+            animation-delay: 0.4s;
+        }
+
+        .ink-brush .ink-ring:nth-child(3) {
+            animation-delay: 0.8s;
+        }
+
+        @keyframes ink-bloom {
+            0% {
+                r: 3;
+                opacity: 0.9;
+                stroke-width: 3;
+            }
+
+            100% {
+                r: 15;
+                opacity: 0;
+                stroke-width: 0.5;
+            }
+        }
+
+        /* 毛筆筆尖：緩緩畫出一道弧線，象徵落筆審閱 */
+        .ink-brush .brush-tip {
+            stroke: var(--ddm-brown);
+            stroke-width: 2;
+            stroke-linecap: round;
+            fill: none;
+            stroke-dasharray: 34;
+            stroke-dashoffset: 34;
+            animation: brush-stroke 1.8s ease-in-out infinite;
+        }
+
+        @keyframes brush-stroke {
+
+            0%,
+            10% {
+                stroke-dashoffset: 34;
+                opacity: 0.9;
+            }
+
+            55% {
+                stroke-dashoffset: 0;
+                opacity: 0.9;
+            }
+
+            80%,
+            100% {
+                stroke-dashoffset: 0;
+                opacity: 0;
+            }
+        }
+
+        .loading-text {
+            display: inline-flex;
+            align-items: baseline;
+            gap: 2px;
+        }
+
+        /* 文字後面的省略號逐點浮現，取代生硬的「請稍候」跳動 */
+        .loading-text .dot {
+            opacity: 0;
+            animation: dot-fade 1.4s ease-in-out infinite;
+        }
+
+        .loading-text .dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .loading-text .dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes dot-fade {
+
+            0%,
+            100% {
+                opacity: 0;
+                transform: translateY(0);
+            }
+
+            50% {
+                opacity: 1;
+                transform: translateY(-1px);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            .ink-brush .ink-ring,
+            .ink-brush .brush-tip,
+            .loading-text .dot {
+                animation: none;
+            }
+
+            .ink-brush .ink-ring {
+                opacity: 0.4;
+            }
+
+            .ink-brush .brush-tip {
+                stroke-dashoffset: 0;
+                opacity: 0.6;
+            }
+
+            .loading-text .dot {
+                opacity: 1;
             }
         }
 
@@ -709,14 +934,23 @@
 <body>
 
     <header>
-        <div class="logo-section" onclick="showPage('home')">
-            <img src="logo.png" alt="Elvis IT Logo" class="logo-image">
-            <div class="logo-text">
-                <span class="title">卓編數位書房</span>
-                <span class="subtitle">DIGITAL EDITOR ZHUO</span>
+        <div class="header-top">
+            <div class="logo-section" onclick="showPage('home')">
+                <img src="logo.png" alt="Elvis IT Logo" class="logo-image">
+                <div class="logo-text">
+                    <span class="title">卓編數位書房</span>
+                    <span class="subtitle">DIGITAL EDITOR ZHUO</span>
+                </div>
             </div>
+            <div class="status-btn" id="connectionStatus">知識庫已連線</div>
         </div>
-        <div class="status-btn" id="connectionStatus">知識庫已連線</div>
+        <nav class="header-nav" id="headerNav">
+            <div class="nav-link" data-nav="home" onclick="showPage('home')"><span data-icon-inline="home"></span>首頁</div>
+            <div class="nav-link" data-nav="report" onclick="showPage('report')"><span data-icon-inline="report"></span>活動報導</div>
+            <div class="nav-link" data-nav="interview" onclick="showPage('interview')"><span data-icon-inline="interview"></span>人物專訪</div>
+            <div class="nav-link" data-nav="dm" onclick="showPage('dm')"><span data-icon-inline="dm"></span>活動 DM</div>
+            <div class="nav-link" data-nav="rules" onclick="showPage('rules')"><span data-icon-inline="rules"></span>大神的便條紙</div>
+        </nav>
     </header>
 
     <main id="mainContent">
@@ -731,9 +965,7 @@
             <div class="card-grid">
                 <div class="card" onclick="showPage('report')">
                     <div class="card-no">潤稿中心 - 報導</div>
-                    <div class="icon-box color-green">
-                        <span class="material-symbols-outlined">article</span>
-                    </div>
+                    <div class="icon-box color-green" data-icon="report"></div>
                     <h3>活動報導 潤飾</h3>
                     <p>梳理人事時地物，去除贅字，並自動在重要段落加上提綱挈領的小標題。</p>
                     <div class="card-divider">
@@ -743,9 +975,7 @@
 
                 <div class="card" onclick="showPage('interview')">
                     <div class="card-no">潤稿中心 - 專訪</div>
-                    <div class="icon-box color-green">
-                        <span class="material-symbols-outlined">record_voice_over</span>
-                    </div>
+                    <div class="icon-box color-green" data-icon="interview"></div>
                     <h3>人物專訪 潤飾</h3>
                     <p>萃取受訪者的「學佛因緣」與「護法願心」，轉化語氣並產出具備禪意的主標題。</p>
                     <div class="card-divider">
@@ -755,9 +985,7 @@
 
                 <div class="card" onclick="showPage('dm')">
                     <div class="card-no">文案中心 - 文宣</div>
-                    <div class="icon-box color-brown">
-                        <span class="material-symbols-outlined">campaign</span>
-                    </div>
+                    <div class="icon-box color-brown" data-icon="dm"></div>
                     <h3>活動 DM 撰寫</h3>
                     <p>輸入活動基礎資訊，自動套用起承轉合架構與聖嚴師父法語，產出宣傳文案。</p>
                     <div class="card-divider">
@@ -767,9 +995,7 @@
 
                 <div class="card" onclick="showPage('rules')">
                     <div class="card-no">專屬知識庫 - 卓編</div>
-                    <div class="icon-box color-brown">
-                        <span class="material-symbols-outlined">edit_note</span>
-                    </div>
+                    <div class="icon-box color-brown" data-icon="rules"></div>
                     <h3>大神的便條紙</h3>
                     <p>管理卓編的特別注意事項、詞彙提醒與當期電子報主軸，動態更新系統認知。</p>
                     <div class="card-divider">
@@ -788,7 +1014,7 @@
     </main>
 
     <footer>
-        Elvis 程式設計 ‧ 艾維斯資訊顧問 IT‧ V02‧2026-07-30
+        Elvis 程式設計 ‧ 艾維斯資訊顧問 IT‧ V03‧2026-07-30
     </footer>
 
     <script src="app.js"></script>

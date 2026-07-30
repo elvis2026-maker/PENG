@@ -27,7 +27,7 @@ const WORKER_BASE_URL = "https://zhuo-editor-proxy.<your-subdomain>.workers.dev"
 `app.js` 會偵測 `WORKER_BASE_URL` 是否仍是預設佔位字串，若是，自動切換為示範模式：
 
 - 介面與流程完全可操作
-- AI 回覆為模擬文字（不會真的呼叫 API）
+- 卓編的回覆為模擬文字（不會真的呼叫 API）
 - 便條紙規則庫只存在瀏覽器記憶體（重新整理會重置為三筆示範資料）
 
 方便在 Worker 尚未部署完成前，先確認介面與互動流程是否符合需求。
@@ -48,4 +48,15 @@ const WORKER_BASE_URL = "https://zhuo-editor-proxy.<your-subdomain>.workers.dev"
 | 活動 DM 撰寫 | `renderDmPage` | `handleDmSubmit` |
 | 大神的便條紙 | `renderRulesPage` | `handleAddRule` / `handleToggleRule` / `handleDeleteRule` |
 
-每個「送出處理函式」內都有組 `systemPrompt` 的邏輯，其中會呼叫 `buildRulesPromptFragment()` 動態取得目前啟用中的便條紙規則並安插進去——這是四個功能共用規則庫的關鍵函式，如果要調整 AI 的潤稿邏輯或語氣，直接修改對應函式裡的 `systemPrompt` 字串即可。
+每個「送出處理函式」內都有組 `systemPrompt` 的邏輯，其中會呼叫 `buildRulesPromptFragment()` 動態取得目前啟用中的便條紙規則並安插進去——這是四個功能共用規則庫的關鍵函式，如果要調整卓編潤稿的邏輯或語氣，直接修改對應函式裡的 `systemPrompt` 字串即可。
+
+實際呼叫 Worker（或示範模式假回覆）的統一入口是 `askZhuo()`（V2 版原名 `callAI()`，V3 更名以配合「卓編親自審稿」的語氣調整，行為未變）。
+
+## V3 新增：圖示庫與動畫（app.js 開頭）
+
+- `ICONS`：首頁四張卡片大圖示、內文小圖示（返回、送出、完成勾選、標題印記、新增）的原創 SVG 定義，皆為手繪水墨線條風格。要更換或新增圖示，直接編輯對應的 SVG 字串即可，不需要額外的圖示套件或字型。
+- `NAV_ICONS`：頂部導覽選單用的小尺寸版本圖示。
+- `INK_LOADER`：四個送出按鈕旁「墨滴暈染＋毛筆筆觸」載入動畫的 HTML 片段，動畫效果本身定義在 `index.html` 的 `<style>` 區塊（`.ink-brush` / `@keyframes ink-bloom` / `@keyframes brush-stroke`）。
+- `injectStaticIcons()` / `updateNavActiveState()`：頁面載入與切換時，分別負責把圖示塞進 `data-icon` / `data-icon-inline` 容器、以及讓頂部選單反白對應項目，皆在 `DOMContentLoaded` 與 `showPage()` 內呼叫，不需手動觸發。
+
+LOGO（`logo.png`）不在這套圖示庫內，維持原檔案不變。
