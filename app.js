@@ -867,10 +867,6 @@ function renderReportPage(container) {
                     ${ICONS.submit}
                     請卓編過目
                 </button>
-                <div class="loading-indicator" id="report-loading">
-                    ${INK_LOADER}
-                    <span class="loading-text">卓編正在提筆潤稿<span class="dot">．</span><span class="dot">．</span><span class="dot">．</span></span>
-                </div>
             </div>
             <div class="error-msg" id="report-error"></div>
         </div>
@@ -923,11 +919,9 @@ async function handleReportSubmit() {
     const tone = document.getElementById("report-tone").value;
     const intensity = document.getElementById("report-intensity").value;
     const submitBtn = document.getElementById("report-submit");
-    const loadingEl = document.getElementById("report-loading");
     const resultPanel = document.getElementById("report-result-panel");
 
     submitBtn.disabled = true;
-    loadingEl.classList.add("show");
     resultPanel.classList.remove("show");
     toggleCanvasLoader("report", true);
     resetDiffView("report", "report-diff-toggle", "report-diff-box");
@@ -974,7 +968,6 @@ ${buildRulesPromptFragment()}
         errorEl.classList.add("show");
     } finally {
         submitBtn.disabled = false;
-        loadingEl.classList.remove("show");
         toggleCanvasLoader("report", false);
     }
 }
@@ -1047,10 +1040,6 @@ function renderInterviewPage(container) {
                     ${ICONS.submit}
                     請卓編過目
                 </button>
-                <div class="loading-indicator" id="interview-loading">
-                    ${INK_LOADER}
-                    <span class="loading-text">卓編正在細細品讀稿件<span class="dot">．</span><span class="dot">．</span><span class="dot">．</span></span>
-                </div>
             </div>
             <div class="error-msg" id="interview-error"></div>
         </div>
@@ -1094,11 +1083,9 @@ async function handleInterviewSubmit() {
     const focus = document.getElementById("interview-focus").value;
     const intensity = document.getElementById("interview-intensity").value;
     const submitBtn = document.getElementById("interview-submit");
-    const loadingEl = document.getElementById("interview-loading");
     const resultPanel = document.getElementById("interview-result-panel");
 
     submitBtn.disabled = true;
-    loadingEl.classList.add("show");
     resultPanel.classList.remove("show");
     toggleCanvasLoader("interview", true);
     resetDiffView("interview", "interview-diff-toggle", "interview-diff-box");
@@ -1151,7 +1138,6 @@ TITLE3: 第三個備選標題
         errorEl.classList.add("show");
     } finally {
         submitBtn.disabled = false;
-        loadingEl.classList.remove("show");
         toggleCanvasLoader("interview", false);
     }
 }
@@ -1281,10 +1267,6 @@ function renderDmPage(container) {
                     ${ICONS.submit}
                     生成 DM 文案
                 </button>
-                <div class="loading-indicator" id="dm-loading">
-                    ${INK_LOADER}
-                    <span class="loading-text">卓編正在構思文案<span class="dot">．</span><span class="dot">．</span><span class="dot">．</span></span>
-                </div>
             </div>
             <div class="error-msg" id="dm-error"></div>
         </div>
@@ -1323,11 +1305,9 @@ async function handleDmSubmit() {
     }
 
     const submitBtn = document.getElementById("dm-submit");
-    const loadingEl = document.getElementById("dm-loading");
     const resultPanel = document.getElementById("dm-result-panel");
 
     submitBtn.disabled = true;
-    loadingEl.classList.add("show");
     resultPanel.classList.remove("show");
     toggleCanvasLoader("dm", true);
 
@@ -1361,7 +1341,6 @@ ${buildRulesPromptFragment()}
         errorEl.classList.add("show");
     } finally {
         submitBtn.disabled = false;
-        loadingEl.classList.remove("show");
         toggleCanvasLoader("dm", false);
     }
 }
