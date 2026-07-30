@@ -95,6 +95,22 @@ const ICONS = {
         <path d="M6.5 10V18.5H17.5V10" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
         <path d="M10 18.5V14H14V18.5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
     </svg>`,
+
+    // 匯入：一張紙頁與向上的墨線箭頭，象徵把外部稿件請進來
+    importDoc: `<svg class="icon-inline icon-14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6.5 3.5H14.5L18 7V20.5H6.5V3.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M14 3.5V7H18" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M12 17V10.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M9 13L12 10L15 13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`,
+
+    // 匯出：一張紙頁與向下的墨線箭頭，象徵把定稿交付出去
+    exportDoc: `<svg class="icon-inline icon-14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6.5 3.5H14.5L18 7V20.5H6.5V3.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M14 3.5V7H18" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M12 10.5V17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M9 14L12 17L15 14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`,
 };
 
 // 選單／內文用的小尺寸圖示（沿用同一套線條，line-only 版本）
@@ -281,6 +297,143 @@ function copyToClipboard(text, btnEl) {
     });
 }
 
+// ================= V5：Word 檔匯入 / 匯出（純前端，不經過 Worker） =================
+//
+// 匯入：使用 mammoth.js 在瀏覽器端讀取 .docx，抽出純文字貼入初稿欄位。
+// 匯出：使用 docx.js 在瀏覽器端把潤稿結果組成 .docx，供使用者下載存檔。
+// 兩者都是純前端運算，不會把檔案內容傳到 Worker 或任何伺服器。
+
+// 讀取使用者選取的 .docx 檔案，把純文字塞進指定的 textarea，並顯示匯入狀態
+async function handleWordImport(inputEl, textareaId, statusElId) {
+    const statusEl = document.getElementById(statusElId);
+    const file = inputEl.files && inputEl.files[0];
+    if (!file) return;
+
+    if (statusEl) {
+        statusEl.textContent = "正在讀取檔案……";
+        statusEl.className = "import-status";
+    }
+
+    const isDocx = /\.docx$/i.test(file.name);
+    if (!isDocx) {
+        if (statusEl) {
+            statusEl.textContent = "目前僅支援 .docx 格式，若是舊版 .doc 請先用 Word 另存為 .docx 再上傳。";
+            statusEl.className = "import-status error";
+        }
+        inputEl.value = "";
+        return;
+    }
+
+    if (typeof mammoth === "undefined") {
+        if (statusEl) {
+            statusEl.textContent = "匯入元件尚未載入完成，請稍後再試一次。";
+            statusEl.className = "import-status error";
+        }
+        inputEl.value = "";
+        return;
+    }
+
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        const text = (result.value || "").trim();
+
+        if (!text) {
+            if (statusEl) {
+                statusEl.textContent = "這份檔案讀不到任何文字內容，請確認檔案是否正確。";
+                statusEl.className = "import-status error";
+            }
+            inputEl.value = "";
+            return;
+        }
+
+        const textarea = document.getElementById(textareaId);
+        if (textarea) textarea.value = text;
+
+        if (statusEl) {
+            statusEl.textContent = `已匯入「${file.name}」✓`;
+            statusEl.className = "import-status success";
+        }
+    } catch (err) {
+        if (statusEl) {
+            statusEl.textContent = `匯入失敗：${err.message}`;
+            statusEl.className = "import-status error";
+        }
+    } finally {
+        // 清空 input 的值，讓使用者可以重複選擇同一個檔案再次觸發 change 事件
+        inputEl.value = "";
+    }
+}
+
+// 把文字內容（可含多段落，以換行分隔）匯出成 .docx 並觸發下載
+// title：文件標題（選填，會以較大字體置於文件最上方）
+// bodyText：正文內容
+// filename：下載檔名（不含副檔名）
+async function exportTextAsWord({ title, bodyText, filename }) {
+    if (typeof docx === "undefined") {
+        alert("匯出元件尚未載入完成，請稍後再試一次，或檢查網路連線是否能讀取 cdn.jsdelivr.net。");
+        return;
+    }
+
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel } = docx;
+
+    const children = [];
+
+    if (title && title.trim()) {
+        children.push(
+            new Paragraph({
+                heading: HeadingLevel.HEADING_1,
+                spacing: { after: 300 },
+                children: [new TextRun({ text: title.trim(), bold: true })],
+            })
+        );
+    }
+
+    const paragraphs = (bodyText || "").split(/\n/);
+    paragraphs.forEach((line) => {
+        // 去除潤稿結果中常見的「■ 小標題」記號前綴，改用粗體呈現，其餘維持正文
+        const headingMatch = line.match(/^■\s*(.+)$/);
+        if (headingMatch) {
+            children.push(
+                new Paragraph({
+                    spacing: { before: 200, after: 120 },
+                    children: [new TextRun({ text: headingMatch[1], bold: true })],
+                })
+            );
+        } else {
+            children.push(
+                new Paragraph({
+                    spacing: { after: 120 },
+                    children: [new TextRun({ text: line })],
+                })
+            );
+        }
+    });
+
+    const doc = new Document({
+        sections: [
+            {
+                properties: {},
+                children,
+            },
+        ],
+    });
+
+    try {
+        const blob = await Packer.toBlob(doc);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${filename || "卓編文稿"}.docx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (err) {
+        alert(`匯出 Word 檔失敗：${err.message}`);
+    }
+}
+
 // ================= 功能一：活動報導 潤稿 =================
 function renderReportPage(container) {
     container.dataset.rendered = "1";
@@ -301,7 +454,15 @@ function renderReportPage(container) {
         <div class="panel">
             <div class="form-group">
                 <label for="report-draft">貼上活動報導初稿</label>
-                <textarea id="report-draft" placeholder="請貼上寫手提交的初稿全文……"></textarea>
+                <div class="import-row">
+                    <label class="file-import-label">
+                        ${ICONS.importDoc}
+                        匯入 Word 檔（.docx）
+                        <input type="file" accept=".docx" onchange="handleWordImport(this, 'report-draft', 'report-import-status')">
+                    </label>
+                    <span class="import-status" id="report-import-status"></span>
+                </div>
+                <textarea id="report-draft" placeholder="請貼上寫手提交的初稿全文，或點選上方「匯入 Word 檔」直接上傳……"></textarea>
             </div>
 
             <div class="form-row">
@@ -351,6 +512,10 @@ function renderReportPage(container) {
             <div class="result-box" id="report-result-box"></div>
             <div class="btn-row" style="margin-top:16px;">
                 <button class="btn btn-secondary copy-btn" onclick="copyToClipboard(document.getElementById('report-result-box').textContent, this)">複製全文</button>
+                <button class="btn btn-secondary" onclick="exportTextAsWord({ title: '', bodyText: document.getElementById('report-result-box').textContent, filename: '活動報導_卓編潤稿' })">
+                    ${ICONS.exportDoc}
+                    匯出 Word 檔
+                </button>
             </div>
         </div>
     `;
@@ -443,7 +608,15 @@ function renderInterviewPage(container) {
         <div class="panel">
             <div class="form-group">
                 <label for="interview-draft">貼上人物專訪初稿</label>
-                <textarea id="interview-draft" placeholder="請貼上訪談逐字稿或初稿內容……"></textarea>
+                <div class="import-row">
+                    <label class="file-import-label">
+                        ${ICONS.importDoc}
+                        匯入 Word 檔（.docx）
+                        <input type="file" accept=".docx" onchange="handleWordImport(this, 'interview-draft', 'interview-import-status')">
+                    </label>
+                    <span class="import-status" id="interview-import-status"></span>
+                </div>
+                <textarea id="interview-draft" placeholder="請貼上訪談逐字稿或初稿內容，或點選上方「匯入 Word 檔」直接上傳……"></textarea>
             </div>
 
             <div class="form-row">
@@ -497,6 +670,10 @@ function renderInterviewPage(container) {
             <div class="result-box" id="interview-result-box"></div>
             <div class="btn-row" style="margin-top:16px;">
                 <button class="btn btn-secondary copy-btn" onclick="copyInterviewFull()">複製標題＋全文</button>
+                <button class="btn btn-secondary" onclick="exportInterviewAsWord()">
+                    ${ICONS.exportDoc}
+                    匯出 Word 檔
+                </button>
             </div>
         </div>
     `;
@@ -633,6 +810,13 @@ function copyInterviewFull() {
     });
 }
 
+function exportInterviewAsWord() {
+    const idx = window.selectedInterviewTitleIdx ?? 0;
+    const title = currentInterviewTitles[idx] || "";
+    const body = document.getElementById("interview-result-box").textContent;
+    exportTextAsWord({ title, bodyText: body, filename: "人物專訪_卓編潤稿" });
+}
+
 function escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = str;
@@ -670,7 +854,15 @@ function renderDmPage(container) {
 
             <div class="form-group">
                 <label for="dm-purpose">活動宗旨／目標對象</label>
-                <textarea id="dm-purpose" style="min-height:100px;" placeholder="例如：感恩榮董菩薩們一年來的護持，邀請所有榮董及其眷屬齊聚，共同回顧僧團弘化足跡……"></textarea>
+                <div class="import-row">
+                    <label class="file-import-label">
+                        ${ICONS.importDoc}
+                        匯入 Word 檔（.docx）
+                        <input type="file" accept=".docx" onchange="handleWordImport(this, 'dm-purpose', 'dm-import-status')">
+                    </label>
+                    <span class="import-status" id="dm-import-status"></span>
+                </div>
+                <textarea id="dm-purpose" style="min-height:100px;" placeholder="例如：感恩榮董菩薩們一年來的護持，邀請所有榮董及其眷屬齊聚，共同回顧僧團弘化足跡……或點選上方「匯入 Word 檔」直接上傳寫手提供的活動宗旨初稿"></textarea>
             </div>
 
             <div class="form-group">
@@ -696,6 +888,10 @@ function renderDmPage(container) {
             <div class="result-box" id="dm-result-box"></div>
             <div class="btn-row" style="margin-top:16px;">
                 <button class="btn btn-secondary copy-btn" onclick="copyToClipboard(document.getElementById('dm-result-box').textContent, this)">複製全文</button>
+                <button class="btn btn-secondary" onclick="exportTextAsWord({ title: document.getElementById('dm-name').value.trim(), bodyText: document.getElementById('dm-result-box').textContent, filename: '活動DM_卓編文案' })">
+                    ${ICONS.exportDoc}
+                    匯出 Word 檔
+                </button>
             </div>
         </div>
     `;

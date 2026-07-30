@@ -10,7 +10,7 @@ frontend-project/
 └── README.md     # 本檔案
 ```
 
-無建置流程、無框架依賴，三個檔案（`index.html` / `app.js` / `logo.png`）放在同一層即可直接部署到 GitHub Pages 或任何靜態主機。
+無建置流程、無框架依賴，三個檔案（`index.html` / `app.js` / `logo.png`）放在同一層即可直接部署到 GitHub Pages 或任何靜態主機。V5 起，`index.html` 額外從兩個公開 CDN 載入兩支 `<script>`（`mammoth.js` 用於讀取 Word 檔、`docx` 用於匯出 Word 檔），詳見下方「V5 新增：Word 檔匯入匯出」。
 
 ## 串接後端
 
@@ -60,3 +60,14 @@ const WORKER_BASE_URL = "https://zhuo-editor-proxy.<your-subdomain>.workers.dev"
 - `injectStaticIcons()` / `updateNavActiveState()`：頁面載入與切換時，分別負責把圖示塞進 `data-icon` / `data-icon-inline` 容器、以及讓頂部選單反白對應項目，皆在 `DOMContentLoaded` 與 `showPage()` 內呼叫，不需手動觸發。
 
 LOGO（`logo.png`）不在這套圖示庫內，維持原檔案不變。
+
+## V5 新增：Word 檔匯入匯出
+
+三項潤稿／文案功能（活動報導、人物專訪、活動 DM）都新增了「匯入 Word 檔」與「匯出 Word 檔」，全部在瀏覽器端運算，不會經過 Worker：
+
+- **匯入**：使用 [mammoth.js](https://github.com/mwilliamson/mammoth.js)（`mammoth.extractRawText`）把使用者上傳的 `.docx` 轉成純文字，寫入對應的 textarea。對應函式：`handleWordImport(inputEl, textareaId, statusElId)`。
+- **匯出**：使用 [docx](https://docx.js.org/)（`Packer.toBlob`）把潤稿結果組成 `.docx`，透過 blob URL 觸發瀏覽器下載。對應函式：`exportTextAsWord({ title, bodyText, filename })`；人物專訪頁面另有 `exportInterviewAsWord()` 包裝，會自動帶入目前選定的備選標題。
+- 兩支函式都定義在 `app.js` 的「V5：Word 檔匯入 / 匯出」區塊，緊接在 `copyToClipboard` 之後。
+- **外部依賴**：`index.html` 新增了兩個 `<script src>`（cdnjs 的 `mammoth.browser.min.js`、jsDelivr 的 `docx` UMD build）。這兩支腳本由**使用者的瀏覽器**直接向 CDN 下載，與 Worker 無關；如果使用者所在的網路環境有網域白名單限制，需要放行 `cdnjs.cloudflare.com` 與 `cdn.jsdelivr.net`，否則匯入／匯出按鈕會顯示「元件尚未載入完成」的錯誤訊息。
+- 目前只支援 `.docx`；上傳其他格式（如舊版 `.doc`）會顯示提示訊息，請對方先用 Word 另存新檔為 `.docx` 再上傳。
+- 潤稿結果中的「■ 小標題」記號，匯出時會自動轉換為 Word 文件內的粗體小標題（並移除 ■ 符號），其餘段落維持原樣。

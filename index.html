@@ -533,6 +533,54 @@
             flex-wrap: wrap;
         }
 
+        /* V5：檔案匯入匯出 */
+        .import-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .file-import-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 16px;
+            border: 1px dashed var(--border-color);
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--ddm-brown);
+            background-color: #faf8f5;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        .file-import-label:hover {
+            background-color: #f3ede0;
+            border-color: var(--ddm-brown);
+        }
+
+        .file-import-label input[type="file"] {
+            display: none;
+        }
+
+        .import-status {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .import-status.success {
+            color: var(--ddm-green);
+            font-weight: 700;
+        }
+
+        .import-status.error {
+            color: var(--danger);
+            font-weight: 700;
+        }
+
         /* 結果區塊 */
         .result-panel {
             display: none;
@@ -1014,8 +1062,14 @@
     </main>
 
     <footer>
-        Elvis 程式設計 ‧ 艾維斯資訊顧問 IT‧ V04‧2026-07-30
+        Elvis 程式設計 ‧ 艾維斯資訊顧問 IT‧ V05‧2026-07-30
     </footer>
+
+    <!-- V5：檔案匯入匯出用 -->
+    <!-- mammoth.js：讀取使用者上傳的 .docx 初稿，轉為純文字 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.11.0/mammoth.browser.min.js"></script>
+    <!-- docx.js：將潤稿結果匯出成 .docx 檔案，供下載 -->
+    <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js"></script>
 
     <script src="app.js"></script>
 
