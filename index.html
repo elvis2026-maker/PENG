@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>卓編數位書房 | DIGITAL EDITOR ZHUO</title>
+    <title>卓編數位書房 | 艾維斯資訊顧問 IT</title>
     <!-- 引入 Google 字體 -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- V3：已改用自繪 SVG 線條圖示，不再依賴 Material Symbols 字型 -->
@@ -130,31 +130,15 @@
         }
 
         @keyframes status-pulse {
-            0% {
-                box-shadow: 0 0 0 0 rgba(26, 92, 58, 0.45);
-            }
-
-            70% {
-                box-shadow: 0 0 0 6px rgba(26, 92, 58, 0);
-            }
-
-            100% {
-                box-shadow: 0 0 0 0 rgba(26, 92, 58, 0);
-            }
+            0% { box-shadow: 0 0 0 0 rgba(26, 92, 58, 0.45); }
+            70% { box-shadow: 0 0 0 6px rgba(26, 92, 58, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(26, 92, 58, 0); }
         }
 
         @keyframes status-pulse-offline {
-            0% {
-                box-shadow: 0 0 0 0 rgba(179, 64, 58, 0.45);
-            }
-
-            70% {
-                box-shadow: 0 0 0 6px rgba(179, 64, 58, 0);
-            }
-
-            100% {
-                box-shadow: 0 0 0 0 rgba(179, 64, 58, 0);
-            }
+            0% { box-shadow: 0 0 0 0 rgba(179, 64, 58, 0.45); }
+            70% { box-shadow: 0 0 0 6px rgba(179, 64, 58, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(179, 64, 58, 0); }
         }
 
         /* 點擊燈號後彈出的文字小泡泡，取代原本常駐的文字膠囊 */
@@ -237,7 +221,6 @@
         }
 
         @media (max-width: 760px) {
-
             /* V07：改為一次全部擠進同一行顯示，不再橫向滑動（原本 overflow-x: auto 會被滑走看不到全部選單）
                作法：縮小左右留白、縮小選單間距與字級、選單圖示縮小或視寬度隱藏，
                並用 white-space: nowrap 確保每個選項文字不換行斷字。 */
@@ -276,7 +259,6 @@
         }
 
         @media (max-width: 400px) {
-
             /* 極窄螢幕（舊款小手機）：圖示先隱藏，只留文字，確保五個字都不斷行 */
             .nav-link svg {
                 display: none;
@@ -752,6 +734,88 @@
             color: var(--danger);
         }
 
+        /* V7：批次處理（多篇前後對照佇列） */
+        .diff-batch-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px dashed var(--border-color);
+        }
+
+        .diff-batch-section h4 {
+            font-size: 15px;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .diff-batch-section .diff-desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+        }
+
+        .diff-batch-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .diff-batch-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            background-color: #fdfcfa;
+            font-size: 13px;
+            flex-wrap: wrap;
+        }
+
+        .diff-batch-item-no {
+            font-weight: 700;
+            color: var(--ddm-brown);
+            flex-shrink: 0;
+        }
+
+        .diff-batch-item-label {
+            flex: 1;
+            color: var(--text-main);
+            min-width: 120px;
+        }
+
+        .diff-batch-item-result {
+            font-size: 12.5px;
+            color: var(--text-muted);
+        }
+
+        /* V7：草稿自動保存提示條 */
+        .draft-banner {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            background-color: #fdf6e3;
+            border: 1px solid #e6d5a8;
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: var(--text-main);
+        }
+
+        .draft-banner.show {
+            display: flex;
+        }
+
+        .draft-banner-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
         /* 結果區塊 */
         .result-panel {
             display: none;
@@ -780,6 +844,56 @@
             line-height: 1.9;
             font-size: 15px;
             color: var(--text-main);
+        }
+
+        .result-box.hide {
+            display: none;
+        }
+
+        /* V7：潤稿前後併排比對（diff）顯示 */
+        .diff-box {
+            display: none;
+        }
+
+        .diff-box.show {
+            display: block;
+        }
+
+        .diff-legend {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            font-size: 12.5px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .diff-content {
+            background-color: #faf8f5;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            white-space: pre-wrap;
+            line-height: 2;
+            font-size: 15px;
+            color: var(--text-main);
+        }
+
+        .diff-add {
+            background-color: #dff0e2;
+            color: #1a5c3a;
+            text-decoration: underline;
+            text-decoration-color: #1a5c3a;
+            border-radius: 3px;
+            padding: 0 1px;
+        }
+
+        .diff-del {
+            background-color: #f8dedc;
+            color: #8a2d28;
+            text-decoration: line-through;
+            border-radius: 3px;
+            padding: 0 1px;
         }
 
         .title-options {
@@ -1062,10 +1176,71 @@
             color: #6b4c9a;
         }
 
+        .rule-date {
+            display: inline-block;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-left: 6px;
+            margin-bottom: 6px;
+        }
+
         .rule-content {
             font-size: 14px;
             color: var(--text-main);
             line-height: 1.6;
+        }
+
+        /* V7：便條紙篩選列（全部／本週新增／自動歸納） */
+        .rule-filter-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .filter-chip {
+            padding: 6px 14px;
+            border: 1px solid var(--border-color);
+            background-color: white;
+            border-radius: 20px;
+            font-size: 12.5px;
+            font-family: 'Noto Sans TC', sans-serif;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+        }
+
+        .filter-chip:hover {
+            background-color: #f5f1e8;
+        }
+
+        .filter-chip.active {
+            background-color: var(--ddm-green);
+            border-color: var(--ddm-green);
+            color: white;
+            font-weight: 700;
+        }
+
+        .rule-filter-count {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+
+        .rule-export-actions {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+            margin-top: 4px;
+        }
+
+        @media (min-width: 641px) {
+            .rule-export-actions {
+                width: auto;
+                margin-top: 0;
+                margin-left: 8px;
+            }
         }
 
         .rule-actions {
@@ -1169,15 +1344,11 @@
             </div>
         </div>
         <nav class="header-nav" id="headerNav">
-            <div class="nav-link" data-nav="home" onclick="showPage('home')"><span data-icon-inline="home"></span>首頁
-            </div>
-            <div class="nav-link" data-nav="report" onclick="showPage('report')"><span
-                    data-icon-inline="report"></span>活動報導</div>
-            <div class="nav-link" data-nav="interview" onclick="showPage('interview')"><span
-                    data-icon-inline="interview"></span>人物專訪</div>
+            <div class="nav-link" data-nav="home" onclick="showPage('home')"><span data-icon-inline="home"></span>首頁</div>
+            <div class="nav-link" data-nav="report" onclick="showPage('report')"><span data-icon-inline="report"></span>活動報導</div>
+            <div class="nav-link" data-nav="interview" onclick="showPage('interview')"><span data-icon-inline="interview"></span>人物專訪</div>
             <div class="nav-link" data-nav="dm" onclick="showPage('dm')"><span data-icon-inline="dm"></span>活動 DM</div>
-            <div class="nav-link" data-nav="rules" onclick="showPage('rules')"><span
-                    data-icon-inline="rules"></span>大神的便條紙</div>
+            <div class="nav-link" data-nav="rules" onclick="showPage('rules')"><span data-icon-inline="rules"></span>大神的便條紙</div>
         </nav>
     </header>
 
@@ -1242,7 +1413,7 @@
     </main>
 
     <footer>
-        Elvis 程式設計 ‧ 艾維斯資訊 IT‧ V06‧2026-07-30
+        Elvis 程式設計 ‧ 艾維斯資訊顧問 IT‧ V06‧2026-07-30
     </footer>
 
     <!-- V5：檔案匯入匯出用 -->

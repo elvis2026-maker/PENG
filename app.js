@@ -17,6 +17,239 @@ const DEMO_MODE = WORKER_BASE_URL.includes("YOUR-SUBDOMAIN");
 let rulesCache = [];
 let currentInterviewTitles = [];
 
+// ================= V7：草稿自動保存（localStorage） =================
+// 目的：避免手機使用者寫到一半被通知／切換 App 打斷，或不小心重新整理頁面而遺失輸入內容。
+// 僅保存「輸入欄位」（初稿、活動資訊等），不保存卓編潤稿後的結果（結果可重新產生，欄位內容才是心血）。
+const DRAFT_STORAGE_PREFIX = "zhuo_draft_";
+const DRAFT_FIELDS = {
+    report: ["report-draft", "report-length", "report-tone", "report-intensity"],
+    interview: ["interview-draft", "interview-length", "interview-focus", "interview-intensity"],
+    dm: ["dm-name", "dm-datetime", "dm-purpose", "dm-notes"],
+};
+
+let draftSaveTimer = null;
+
+// 把某個功能頁目前欄位內容存進 localStorage（debounce 800ms，避免每個按鍵都寫入）
+function scheduleDraftSave(pageKey) {
+    clearTimeout(draftSaveTimer);
+    draftSaveTimer = setTimeout(() => saveDraftNow(pageKey), 800);
+}
+
+function saveDraftNow(pageKey) {
+    const fields = DRAFT_FIELDS[pageKey];
+    if (!fields) return;
+    const data = {};
+    let hasContent = false;
+    fields.forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        data[id] = el.value;
+        if (el.value && el.value.trim()) hasContent = true;
+    });
+
+    try {
+        if (hasContent) {
+            data.savedAt = new Date().toISOString();
+            localStorage.setItem(DRAFT_STORAGE_PREFIX + pageKey, JSON.stringify(data));
+        } else {
+            // 欄位都清空了（例如送出後手動清空），順便清掉暫存，避免下次又跳出「還原」提示
+            localStorage.removeItem(DRAFT_STORAGE_PREFIX + pageKey);
+        }
+    } catch (err) {
+        // 少數情況（無痕模式、儲存空間已滿）localStorage 會丟例外，草稿保存失敗不影響主要功能，靜默略過即可
+    }
+}
+
+// 頁面剛渲染完時呼叫：若偵測到暫存草稿，顯示一條「是否還原上次未送出的內容」提示條
+function checkDraftAndPrompt(pageKey, bannerContainerId) {
+    let saved;
+    try {
+        const raw = localStorage.getItem(DRAFT_STORAGE_PREFIX + pageKey);
+        if (!raw) return;
+        saved = JSON.parse(raw);
+    } catch (err) {
+        return;
+    }
+
+    const bannerEl = document.getElementById(bannerContainerId);
+    if (!bannerEl) return;
+
+    const savedTime = saved.savedAt ? new Date(saved.savedAt) : null;
+    const timeText = savedTime
+        ? `${savedTime.getMonth() + 1}/${savedTime.getDate()} ${String(savedTime.getHours()).padStart(2, "0")}:${String(savedTime.getMinutes()).padStart(2, "0")}`
+        : "先前";
+
+    bannerEl.innerHTML = `
+        <span>偵測到 ${timeText} 未送出的草稿，是否要還原？</span>
+        <div class="draft-banner-actions">
+            <button class="btn btn-secondary" style="padding:6px 14px;font-size:13px;" onclick="restoreDraft('${pageKey}', '${bannerContainerId}')">還原草稿</button>
+            <button class="btn btn-danger-outline" onclick="dismissDraft('${pageKey}', '${bannerContainerId}')">不用了，清除</button>
+        </div>
+    `;
+    bannerEl.classList.add("show");
+}
+
+function restoreDraft(pageKey, bannerContainerId) {
+    let saved;
+    try {
+        const raw = localStorage.getItem(DRAFT_STORAGE_PREFIX + pageKey);
+        if (!raw) return;
+        saved = JSON.parse(raw);
+    } catch (err) {
+        return;
+    }
+
+    const fields = DRAFT_FIELDS[pageKey] || [];
+    fields.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el && saved[id] !== undefined) el.value = saved[id];
+    });
+
+    const bannerEl = document.getElementById(bannerContainerId);
+    if (bannerEl) bannerEl.classList.remove("show");
+}
+
+function dismissDraft(pageKey, bannerContainerId) {
+    localStorage.removeItem(DRAFT_STORAGE_PREFIX + pageKey);
+    const bannerEl = document.getElementById(bannerContainerId);
+    if (bannerEl) bannerEl.classList.remove("show");
+}
+
+// 幫某個功能頁的所有草稿欄位掛上自動保存監聽（input 事件即觸發，debounce 後才真正寫入）
+function bindDraftAutosave(pageKey) {
+    const fields = DRAFT_FIELDS[pageKey];
+    if (!fields) return;
+    fields.forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener("input", () => scheduleDraftSave(pageKey));
+        el.addEventListener("change", () => scheduleDraftSave(pageKey));
+    });
+}
+
+// ================= V7：潤稿前後併排比對（簡易 word-level diff） =================
+// 目的：讓使用者能直觀看到「卓編改了哪些字」，不用自己逐字對照，也有助於判斷潤稿品質、
+// 決定要不要把某個修改習慣手動加進便條紙規則庫。
+// 演算法：以「字」為最小單位（中文沒有天然分詞空格，直接拆字比逐詞斷詞更穩定、不需額外套件），
+// 使用標準 LCS（最長共同子序列）動態規劃求出新舊文本的對齊方式，
+// 只有在較短文本落在允許範圍內才執行（見 DIFF_MAX_LENGTH），避免長文章導致瀏覽器計算卡頓。
+const DIFF_MAX_LENGTH = 6000; // 單邊文本超過這個字數就不提供 diff（避免 O(n*m) 記憶體爆掉），改顯示提示訊息
+
+function computeCharDiff(oldText, newText) {
+    const oldChars = Array.from(oldText);
+    const newChars = Array.from(newText);
+    const m = oldChars.length;
+    const n = newChars.length;
+
+    // dp[i][j] = oldChars 前 i 字與 newChars 前 j 字的最長共同子序列長度
+    const dp = new Array(m + 1);
+    for (let i = 0; i <= m; i++) dp[i] = new Uint32Array(n + 1);
+
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            if (oldChars[i - 1] === newChars[j - 1]) {
+                dp[i][j] = dp[i - 1][j - 1] + 1;
+            } else {
+                dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+            }
+        }
+    }
+
+    // 回溯 dp 表，組出「刪除／新增／不變」的片段序列
+    const ops = [];
+    let i = m, j = n;
+    while (i > 0 && j > 0) {
+        if (oldChars[i - 1] === newChars[j - 1]) {
+            ops.push({ type: "same", ch: oldChars[i - 1] });
+            i--; j--;
+        } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+            ops.push({ type: "del", ch: oldChars[i - 1] });
+            i--;
+        } else {
+            ops.push({ type: "add", ch: newChars[j - 1] });
+            j--;
+        }
+    }
+    while (i > 0) { ops.push({ type: "del", ch: oldChars[i - 1] }); i--; }
+    while (j > 0) { ops.push({ type: "add", ch: newChars[j - 1] }); j--; }
+
+    ops.reverse();
+
+    // 把逐字的 ops 合併成連續片段（同類型相鄰字合成一段），渲染時才不會產生大量細碎的 <span>
+    const segments = [];
+    ops.forEach((op) => {
+        const last = segments[segments.length - 1];
+        if (last && last.type === op.type) {
+            last.text += op.ch;
+        } else {
+            segments.push({ type: op.type, text: op.ch });
+        }
+    });
+    return segments;
+}
+
+// 把 diff 片段渲染成 HTML：新增（底線＋綠色底）、刪除（刪除線＋紅色底）、不變（原樣）
+function renderDiffHtml(segments) {
+    return segments
+        .map((seg) => {
+            const escaped = escapeHtml(seg.text);
+            if (seg.type === "add") return `<span class="diff-add">${escaped}</span>`;
+            if (seg.type === "del") return `<span class="diff-del">${escaped}</span>`;
+            return escaped;
+        })
+        .join("");
+}
+
+// 記錄每個功能頁目前是否為 diff 檢視模式：{ [pageKey]: boolean }
+const DIFF_VIEW_STATE = {};
+
+// 每次重新送出潤稿請求時呼叫，重置該頁的 diff 顯示狀態與按鈕文字，避免舊的 diff 內容與新結果不同步
+function resetDiffView(pageKey, toggleBtnId, diffBoxId) {
+    DIFF_VIEW_STATE[pageKey] = false;
+    const diffBox = document.getElementById(diffBoxId);
+    const toggleBtn = document.getElementById(toggleBtnId);
+    if (diffBox) diffBox.classList.remove("show");
+    if (toggleBtn) toggleBtn.textContent = "顯示修改處對照";
+    const resultBox = document.getElementById(pageKey === "report" ? "report-result-box" : "interview-result-box");
+    if (resultBox) resultBox.classList.remove("hide");
+}
+
+function toggleDiffView(pageKey, originalText, resultText, resultBoxId, diffBoxId, toggleBtnId) {
+    const showingDiff = !DIFF_VIEW_STATE[pageKey];
+    DIFF_VIEW_STATE[pageKey] = showingDiff;
+
+    const resultBox = document.getElementById(resultBoxId);
+    const diffBox = document.getElementById(diffBoxId);
+    const toggleBtn = document.getElementById(toggleBtnId);
+    if (!resultBox || !diffBox) return;
+
+    if (!showingDiff) {
+        diffBox.classList.remove("show");
+        resultBox.classList.remove("hide");
+        if (toggleBtn) toggleBtn.textContent = "顯示修改處對照";
+        return;
+    }
+
+    if (!originalText || !originalText.trim()) {
+        diffBox.innerHTML = `<div class="empty-state">找不到原始初稿內容，無法比對（可能欄位已被清空）。</div>`;
+    } else if (Array.from(originalText).length > DIFF_MAX_LENGTH || Array.from(resultText).length > DIFF_MAX_LENGTH) {
+        diffBox.innerHTML = `<div class="empty-state">文章篇幅較長，為避免瀏覽器計算卡頓，暫不提供逐字對照，請直接閱讀上方潤稿結果。</div>`;
+    } else {
+        const segments = computeCharDiff(originalText, resultText);
+        diffBox.innerHTML = `
+            <div class="diff-legend">
+                <span><span class="diff-add">綠底底線</span>＝新增／修改後的內容</span>
+                <span><span class="diff-del">紅底刪除線</span>＝被移除的原文</span>
+            </div>
+            <div class="diff-content">${renderDiffHtml(segments)}</div>
+        `;
+    }
+
+    diffBox.classList.add("show");
+    resultBox.classList.add("hide");
+    if (toggleBtn) toggleBtn.textContent = "隱藏修改處，只看結果";
+}
+
 // ================= 自繪圖示庫（手繪水墨線條風格，取代通用素材圖示） =================
 // 所有選單／功能圖示皆為原創 SVG 線條繪製，呼應法鼓禪風的溫潤筆觸；
 // LOGO 仍固定使用 logo.png，不在此列。
@@ -468,6 +701,8 @@ function renderReportPage(container) {
             </div>
         </div>
 
+        <div class="draft-banner" id="report-draft-banner"></div>
+
         <div class="panel">
             <div class="form-group">
                 <label for="report-draft">貼上活動報導初稿</label>
@@ -527,15 +762,20 @@ function renderReportPage(container) {
         <div class="panel result-panel" id="report-result-panel">
             <h4>${ICONS.done}潤稿結果</h4>
             <div class="result-box" id="report-result-box"></div>
+            <div class="diff-box" id="report-diff-box"></div>
             <div class="btn-row" style="margin-top:16px;">
                 <button class="btn btn-secondary copy-btn" onclick="copyToClipboard(document.getElementById('report-result-box').textContent, this)">複製全文</button>
                 <button class="btn btn-secondary" onclick="exportTextAsWord({ title: '', bodyText: document.getElementById('report-result-box').textContent, filename: '活動報導_卓編潤稿' })">
                     ${ICONS.exportDoc}
                     匯出 Word 檔
                 </button>
+                <button class="btn btn-secondary" id="report-diff-toggle" onclick="toggleDiffView('report', document.getElementById('report-draft').value, document.getElementById('report-result-box').textContent, 'report-result-box', 'report-diff-box', 'report-diff-toggle')">顯示修改處對照</button>
             </div>
         </div>
     `;
+
+    bindDraftAutosave("report");
+    checkDraftAndPrompt("report", "report-draft-banner");
 }
 
 async function handleReportSubmit() {
@@ -559,6 +799,7 @@ async function handleReportSubmit() {
     submitBtn.disabled = true;
     loadingEl.classList.add("show");
     resultPanel.classList.remove("show");
+    resetDiffView("report", "report-diff-toggle", "report-diff-box");
 
     const systemPrompt = intensity === "light"
         ? `你是「卓師姊」，法鼓山榮譽董事會的資深編輯，現在要做的是「輕度校對」，不是重寫。
@@ -596,6 +837,7 @@ ${buildRulesPromptFragment()}
         document.getElementById("report-result-box").textContent = result;
         resultPanel.classList.add("show");
         resultPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        localStorage.removeItem(DRAFT_STORAGE_PREFIX + "report");
     } catch (err) {
         errorEl.textContent = `潤稿失敗：${err.message}`;
         errorEl.classList.add("show");
@@ -621,6 +863,8 @@ function renderInterviewPage(container) {
                 <p>萃取「學佛因緣」與「護法願心」，產出具備禪意的主標題選項</p>
             </div>
         </div>
+
+        <div class="draft-banner" id="interview-draft-banner"></div>
 
         <div class="panel">
             <div class="form-group">
@@ -685,15 +929,20 @@ function renderInterviewPage(container) {
 
             <h4>${ICONS.done}潤稿結果</h4>
             <div class="result-box" id="interview-result-box"></div>
+            <div class="diff-box" id="interview-diff-box"></div>
             <div class="btn-row" style="margin-top:16px;">
                 <button class="btn btn-secondary copy-btn" onclick="copyInterviewFull()">複製標題＋全文</button>
                 <button class="btn btn-secondary" onclick="exportInterviewAsWord()">
                     ${ICONS.exportDoc}
                     匯出 Word 檔
                 </button>
+                <button class="btn btn-secondary" id="interview-diff-toggle" onclick="toggleDiffView('interview', document.getElementById('interview-draft').value, document.getElementById('interview-result-box').textContent, 'interview-result-box', 'interview-diff-box', 'interview-diff-toggle')">顯示修改處對照</button>
             </div>
         </div>
     `;
+
+    bindDraftAutosave("interview");
+    checkDraftAndPrompt("interview", "interview-draft-banner");
 }
 
 async function handleInterviewSubmit() {
@@ -717,6 +966,7 @@ async function handleInterviewSubmit() {
     submitBtn.disabled = true;
     loadingEl.classList.add("show");
     resultPanel.classList.remove("show");
+    resetDiffView("interview", "interview-diff-toggle", "interview-diff-box");
 
     const systemPrompt = intensity === "light"
         ? `你是「卓師姊」，法鼓山榮譽董事會的資深編輯，現在要做的是「輕度校對」，不是重寫。
@@ -760,6 +1010,7 @@ TITLE3: 第三個備選標題
         parseAndRenderInterviewResult(result);
         resultPanel.classList.add("show");
         resultPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        localStorage.removeItem(DRAFT_STORAGE_PREFIX + "interview");
     } catch (err) {
         errorEl.textContent = `潤稿失敗：${err.message}`;
         errorEl.classList.add("show");
@@ -857,6 +1108,8 @@ function renderDmPage(container) {
             </div>
         </div>
 
+        <div class="draft-banner" id="dm-draft-banner"></div>
+
         <div class="panel">
             <div class="form-row">
                 <div class="form-group">
@@ -912,6 +1165,9 @@ function renderDmPage(container) {
             </div>
         </div>
     `;
+
+    bindDraftAutosave("dm");
+    checkDraftAndPrompt("dm", "dm-draft-banner");
 }
 
 async function handleDmSubmit() {
@@ -960,6 +1216,7 @@ ${buildRulesPromptFragment()}
         document.getElementById("dm-result-box").textContent = result;
         resultPanel.classList.add("show");
         resultPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        localStorage.removeItem(DRAFT_STORAGE_PREFIX + "dm");
     } catch (err) {
         errorEl.textContent = `文案生成失敗：${err.message}`;
         errorEl.classList.add("show");
@@ -1022,6 +1279,10 @@ function renderRulesPage(container) {
                     ${ICONS.submit}
                     分析並歸納規則
                 </button>
+                <button class="btn btn-secondary" onclick="addCurrentDiffToQueue()">
+                    ${ICONS.add}
+                    加入批次佇列
+                </button>
                 <div class="loading-indicator" id="diff-loading">
                     ${INK_LOADER}
                     <span class="loading-text">卓編正在比對前後差異<span class="dot">．</span><span class="dot">．</span><span class="dot">．</span></span>
@@ -1029,6 +1290,27 @@ function renderRulesPage(container) {
             </div>
             <div class="error-msg" id="diff-error"></div>
             <div id="diff-result-summary"></div>
+
+            <!-- V7：批次處理 - 若有多篇文章要處理，可將每組前後對照加入佇列，最後一次送出逐篇分析 -->
+            <div class="diff-batch-section">
+                <h4>${ICONS.rules}批次佇列（一次處理多篇文章）</h4>
+                <p class="diff-desc">若手上有好幾篇文章要比對，可以每填好一組「潤稿前／潤稿後」就按「加入批次佇列」，累積多組後再一次按「開始批次分析」，卓編會依序逐篇比對、自動彙總結果，不需要每篇都手動等待、重新填寫。</p>
+                <div class="diff-batch-list" id="diff-batch-list">
+                    <div class="empty-state">目前佇列是空的，請先在上方填好一組前後對照，再按「加入批次佇列」。</div>
+                </div>
+                <div class="btn-row" style="margin-top:16px;">
+                    <button class="btn btn-primary" id="diff-batch-submit" onclick="handleBatchAnalyzeDiff()" disabled>
+                        ${ICONS.submit}
+                        開始批次分析
+                    </button>
+                    <button class="btn btn-danger-outline" onclick="clearDiffQueue()">清空佇列</button>
+                    <div class="loading-indicator" id="diff-batch-loading">
+                        ${INK_LOADER}
+                        <span class="loading-text" id="diff-batch-loading-text">正在處理第 1 / 1 篇<span class="dot">．</span><span class="dot">．</span><span class="dot">．</span></span>
+                    </div>
+                </div>
+                <div id="diff-batch-summary"></div>
+            </div>
         </div>
 
         <div class="panel">
@@ -1053,11 +1335,155 @@ function renderRulesPage(container) {
             </div>
 
             <div class="error-msg" id="rules-error"></div>
+
+            <div class="rule-filter-row" id="rule-filter-row">
+                <button class="filter-chip active" data-filter="all" onclick="setRuleFilter('all')">全部</button>
+                <button class="filter-chip" data-filter="week" onclick="setRuleFilter('week')">本週新增</button>
+                <button class="filter-chip" data-filter="自動歸納" onclick="setRuleFilter('自動歸納')">僅看自動歸納</button>
+                <span class="rule-filter-count" id="rule-filter-count"></span>
+                <div class="rule-export-actions">
+                    <button class="btn btn-secondary" style="padding:6px 14px;font-size:12.5px;" onclick="exportRulesAsJson()">
+                        ${ICONS.exportDoc}
+                        備份 JSON
+                    </button>
+                    <button class="btn btn-secondary" style="padding:6px 14px;font-size:12.5px;" onclick="exportRulesAsWord()">
+                        ${ICONS.exportDoc}
+                        備份 Word
+                    </button>
+                </div>
+            </div>
+
             <div class="rule-list" id="rules-list">
                 <div class="empty-state">載入中……</div>
             </div>
         </div>
     `;
+}
+
+let currentRuleFilter = "all";
+
+function setRuleFilter(filter) {
+    currentRuleFilter = filter;
+    document.querySelectorAll(".filter-chip").forEach((el) => {
+        el.classList.toggle("active", el.dataset.filter === filter);
+    });
+    renderRulesList();
+}
+
+// 判斷某規則的 created_at 是否落在最近 7 天內（含今天）
+function isWithinLastWeek(createdAt) {
+    if (!createdAt) return false;
+    const created = new Date(createdAt);
+    if (Number.isNaN(created.getTime())) return false;
+    const now = new Date();
+    const diffMs = now - created;
+    return diffMs >= 0 && diffMs <= 7 * 24 * 60 * 60 * 1000;
+}
+
+// 把 ISO 日期格式化成「MM/DD」，用於規則卡片上顯示建立日期
+function formatRuleDate(createdAt) {
+    if (!createdAt) return "";
+    const d = new Date(createdAt);
+    if (Number.isNaN(d.getTime())) return "";
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+// V7：規則庫備份 - 匯出成 JSON 檔（供日後匯入或純粹留底，KV 本身沒有版本記錄，誤刪不好復原）
+function exportRulesAsJson() {
+    if (rulesCache.length === 0) {
+        alert("目前沒有任何規則可以匯出。");
+        return;
+    }
+    const payload = {
+        exported_at: new Date().toISOString(),
+        source: "卓編數位書房 - 大神的便條紙",
+        rule_count: rulesCache.length,
+        rules: rulesCache,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const dateStr = new Date().toISOString().slice(0, 10);
+    a.download = `便條紙備份_${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+// V7：規則庫備份 - 匯出成易讀的 Word 檔，依分類分段列出，方便列印或傳閱給其他編輯参考
+async function exportRulesAsWord() {
+    if (rulesCache.length === 0) {
+        alert("目前沒有任何規則可以匯出。");
+        return;
+    }
+    if (typeof docx === "undefined") {
+        alert("匯出元件尚未載入完成，請稍後再試一次，或檢查網路連線是否能讀取 cdn.jsdelivr.net。");
+        return;
+    }
+
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel } = docx;
+    const children = [];
+
+    children.push(
+        new Paragraph({
+            heading: HeadingLevel.HEADING_1,
+            spacing: { after: 200 },
+            children: [new TextRun({ text: "大神的便條紙 - 規則庫備份", bold: true })],
+        })
+    );
+    children.push(
+        new Paragraph({
+            spacing: { after: 300 },
+            children: [new TextRun({ text: `匯出時間：${new Date().toLocaleString("zh-TW")}　共 ${rulesCache.length} 則`, color: "666666", size: 20 })],
+        })
+    );
+
+    const byCategory = {};
+    rulesCache.forEach((r) => {
+        if (!byCategory[r.category]) byCategory[r.category] = [];
+        byCategory[r.category].push(r);
+    });
+
+    for (const [category, items] of Object.entries(byCategory)) {
+        children.push(
+            new Paragraph({
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 200, after: 100 },
+                children: [new TextRun({ text: `【${category}】`, bold: true })],
+            })
+        );
+        items.forEach((r) => {
+            const statusLabel = r.is_active ? "" : "（已停用）";
+            const dateLabel = formatRuleDate(r.created_at);
+            children.push(
+                new Paragraph({
+                    spacing: { after: 100 },
+                    children: [
+                        new TextRun({ text: `${dateLabel ? `[${dateLabel}] ` : ""}${r.content}${statusLabel}` }),
+                    ],
+                })
+            );
+        });
+    }
+
+    const doc = new Document({ sections: [{ properties: {}, children }] });
+
+    try {
+        const blob = await Packer.toBlob(doc);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const dateStr = new Date().toISOString().slice(0, 10);
+        a.download = `便條紙備份_${dateStr}.docx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (err) {
+        alert(`匯出 Word 檔失敗：${err.message}`);
+    }
 }
 
 function renderRulesList() {
@@ -1066,6 +1492,26 @@ function renderRulesList() {
 
     if (rulesCache.length === 0) {
         listEl.innerHTML = `<div class="empty-state">目前還沒有任何叮嚀事項，請於上方新增。</div>`;
+        const countEl = document.getElementById("rule-filter-count");
+        if (countEl) countEl.textContent = "";
+        return;
+    }
+
+    // V7：依目前選定的篩選條件過濾（全部 / 本週新增 / 特定分類）
+    let filtered = rulesCache;
+    if (currentRuleFilter === "week") {
+        filtered = rulesCache.filter((r) => isWithinLastWeek(r.created_at));
+    } else if (currentRuleFilter !== "all") {
+        filtered = rulesCache.filter((r) => r.category === currentRuleFilter);
+    }
+
+    const countEl = document.getElementById("rule-filter-count");
+    if (countEl) {
+        countEl.textContent = `共 ${filtered.length} 則${filtered.length !== rulesCache.length ? `（總數 ${rulesCache.length} 則）` : ""}`;
+    }
+
+    if (filtered.length === 0) {
+        listEl.innerHTML = `<div class="empty-state">此篩選條件下沒有符合的叮嚀事項。</div>`;
         return;
     }
 
@@ -1076,9 +1522,10 @@ function renderRulesList() {
         "自動歸納": "tag-auto",
     };
 
-    listEl.innerHTML = rulesCache
+    listEl.innerHTML = filtered
         .map((rule) => {
             const tagClass = categoryTagClass[rule.category] || "tag-vocab";
+            const dateLabel = formatRuleDate(rule.created_at);
             return `
             <div class="rule-item ${rule.is_active ? "" : "inactive"}" data-id="${rule.id}">
                 <label class="toggle-switch" title="啟用／停用">
@@ -1087,6 +1534,7 @@ function renderRulesList() {
                 </label>
                 <div class="rule-main">
                     <span class="rule-tag ${tagClass}">${escapeHtml(rule.category)}</span>
+                    ${dateLabel ? `<span class="rule-date">${dateLabel} 新增</span>` : ""}
                     <div class="rule-content">${escapeHtml(rule.content)}</div>
                 </div>
                 <div class="rule-actions">
@@ -1148,27 +1596,199 @@ async function handleAddRule() {
 }
 
 // ================= V6：潤稿前後對照 → 自動歸納規則 =================
-async function handleAnalyzeDiff() {
+// ================= V7：批次處理 - 佇列管理 =================
+// 佇列裡每一項是 { id, beforeText, afterText, label }，label 是給使用者辨識用的簡短摘要（取前後文開頭幾個字）
+let diffQueue = [];
+
+function makeQueueLabel(text) {
+    const trimmed = (text || "").replace(/\s+/g, " ").trim();
+    return trimmed.length > 20 ? trimmed.slice(0, 20) + "…" : trimmed || "（空白）";
+}
+
+// 把目前「潤稿前／潤稿後」輸入框的內容加進佇列，並清空輸入框方便繼續填下一組
+function addCurrentDiffToQueue() {
     const beforeText = document.getElementById("diff-before").value.trim();
     const afterText = document.getElementById("diff-after").value.trim();
     const errorEl = document.getElementById("diff-error");
-    const summaryEl = document.getElementById("diff-result-summary");
     errorEl.classList.remove("show");
-    summaryEl.innerHTML = "";
-    summaryEl.className = "";
 
     if (!beforeText || !afterText) {
-        errorEl.textContent = "請同時貼上（或匯入）「潤稿前」與「潤稿後」兩份文字，才能進行比對。";
+        errorEl.textContent = "請同時填好「潤稿前」與「潤稿後」，才能加入批次佇列。";
         errorEl.classList.add("show");
         return;
     }
 
-    const submitBtn = document.getElementById("diff-submit");
-    const loadingEl = document.getElementById("diff-loading");
+    diffQueue.push({
+        id: `queue-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        beforeText,
+        afterText,
+        label: makeQueueLabel(beforeText),
+    });
+
+    // 清空輸入框，方便使用者繼續貼下一組前後對照（匯入狀態文字也一併清除）
+    document.getElementById("diff-before").value = "";
+    document.getElementById("diff-after").value = "";
+    const beforeStatus = document.getElementById("diff-before-status");
+    const afterStatus = document.getElementById("diff-after-status");
+    if (beforeStatus) beforeStatus.textContent = "";
+    if (afterStatus) afterStatus.textContent = "";
+
+    renderDiffQueueList();
+}
+
+function removeFromDiffQueue(id) {
+    diffQueue = diffQueue.filter((item) => item.id !== id);
+    renderDiffQueueList();
+}
+
+function clearDiffQueue() {
+    diffQueue = [];
+    renderDiffQueueList();
+    const summaryEl = document.getElementById("diff-batch-summary");
+    if (summaryEl) summaryEl.innerHTML = "";
+}
+
+function renderDiffQueueList() {
+    const listEl = document.getElementById("diff-batch-list");
+    const submitBtn = document.getElementById("diff-batch-submit");
+    if (!listEl) return;
+
+    if (diffQueue.length === 0) {
+        listEl.innerHTML = `<div class="empty-state">目前佇列是空的，請先在上方填好一組前後對照，再按「加入批次佇列」。</div>`;
+        if (submitBtn) submitBtn.disabled = true;
+        return;
+    }
+
+    listEl.innerHTML = diffQueue
+        .map(
+            (item, idx) => `
+        <div class="diff-batch-item">
+            <span class="diff-batch-item-no">第 ${idx + 1} 篇</span>
+            <span class="diff-batch-item-label">${escapeHtml(item.label)}</span>
+            <button class="btn btn-danger-outline" onclick="removeFromDiffQueue('${item.id}')">移除</button>
+        </div>`
+        )
+        .join("");
+
+    if (submitBtn) submitBtn.disabled = false;
+}
+
+// 批次分析：依序逐篇呼叫卓編分析（沿用單篇分析的 systemPrompt 邏輯），彙總所有新增／略過/失敗的規則
+async function handleBatchAnalyzeDiff() {
+    if (diffQueue.length === 0) return;
+
+    const submitBtn = document.getElementById("diff-batch-submit");
+    const loadingEl = document.getElementById("diff-batch-loading");
+    const loadingTextEl = document.getElementById("diff-batch-loading-text");
+    const summaryEl = document.getElementById("diff-batch-summary");
+    summaryEl.innerHTML = "";
+    summaryEl.className = "";
 
     submitBtn.disabled = true;
     loadingEl.classList.add("show");
 
+    let totalFound = 0;
+    let totalCreated = 0;
+    let totalSkipped = 0;
+    let totalFailed = 0;
+    const perArticleResults = [];
+
+    // 逐篇處理，刻意不並行送出（避免同時打爆三組備援 Key 額度、也方便使用者看到進度文字）
+    for (let i = 0; i < diffQueue.length; i++) {
+        const item = diffQueue[i];
+        if (loadingTextEl) {
+            loadingTextEl.innerHTML = `正在處理第 ${i + 1} / ${diffQueue.length} 篇<span class="dot">．</span><span class="dot">．</span><span class="dot">．</span>`;
+        }
+
+        try {
+            const extractedRules = await analyzeDiffPair(item.beforeText, item.afterText);
+            totalFound += extractedRules.length;
+
+            const existingContents = new Set(rulesCache.map((r) => r.content.trim()));
+            const toCreate = [];
+            let skippedCount = 0;
+
+            extractedRules.forEach((r) => {
+                const content = (r.content || "").trim();
+                if (!content) return;
+                if (existingContents.has(content)) {
+                    skippedCount++;
+                } else {
+                    toCreate.push(content);
+                    existingContents.add(content);
+                }
+            });
+
+            let createdCount = 0;
+            let failedCount = 0;
+            for (const content of toCreate) {
+                try {
+                    await createRuleOnServer(content, "自動歸納");
+                    createdCount++;
+                } catch (err) {
+                    failedCount++;
+                }
+            }
+
+            totalCreated += createdCount;
+            totalSkipped += skippedCount;
+            totalFailed += failedCount;
+
+            perArticleResults.push({
+                label: item.label,
+                found: extractedRules.length,
+                created: createdCount,
+                skipped: skippedCount,
+                failed: failedCount,
+                error: null,
+            });
+        } catch (err) {
+            perArticleResults.push({
+                label: item.label,
+                found: 0,
+                created: 0,
+                skipped: 0,
+                failed: 0,
+                error: err.message,
+            });
+        }
+    }
+
+    renderRulesList();
+
+    let html = `<div class="diff-result-summary ${totalFailed > 0 ? "error" : "success"}">`;
+    html += `批次分析完成，共處理 ${diffQueue.length} 篇文章：找到 ${totalFound} 條修改模式，`;
+    html += `<strong>新增 ${totalCreated} 條</strong>`;
+    if (totalSkipped > 0) html += `，略過 ${totalSkipped} 條重複規則`;
+    if (totalFailed > 0) html += `，<strong style="color:var(--danger);">${totalFailed} 條寫入失敗</strong>`;
+    html += `。</div>`;
+
+    html += `<div class="diff-batch-list" style="margin-top:12px;">`;
+    perArticleResults.forEach((r, idx) => {
+        html += `<div class="diff-batch-item">
+            <span class="diff-batch-item-no">第 ${idx + 1} 篇</span>
+            <span class="diff-batch-item-label">${escapeHtml(r.label)}</span>
+            <span class="diff-batch-item-result">${
+                r.error
+                    ? `<span style="color:var(--danger);">分析失敗：${escapeHtml(r.error)}</span>`
+                    : `找到 ${r.found} 條，新增 ${r.created} 條${r.skipped ? `，略過 ${r.skipped} 條` : ""}${r.failed ? `，失敗 ${r.failed} 條` : ""}`
+            }</span>
+        </div>`;
+    });
+    html += `</div>`;
+
+    summaryEl.innerHTML = html;
+
+    // 全部處理完後清空佇列，避免使用者不小心重複分析同一批
+    diffQueue = [];
+    renderDiffQueueList();
+
+    submitBtn.disabled = true; // 佇列已清空，維持停用狀態，直到使用者再加入新的一組
+    loadingEl.classList.remove("show");
+}
+
+// 把「呼叫卓編分析一組前後對照」抽出成共用函式，單篇分析與批次分析都呼叫這個
+async function analyzeDiffPair(beforeText, afterText) {
     const systemPrompt = `你是「卓師姊」的助理，任務是比對同一篇文章「潤稿前」與「潤稿後」的差異，從中歸納出卓師姊慣用的修改習慣，整理成日後可以重複套用的規則。
 
 【任務】
@@ -1198,9 +1818,33 @@ ${beforeText}
 【潤稿後（卓師姊定稿）】
 ${afterText}`;
 
+    const result = await askZhuo({ systemPrompt, userPrompt, temperature: 0.3 });
+    return parseDiffAnalysisResult(result);
+}
+
+async function handleAnalyzeDiff() {
+    const beforeText = document.getElementById("diff-before").value.trim();
+    const afterText = document.getElementById("diff-after").value.trim();
+    const errorEl = document.getElementById("diff-error");
+    const summaryEl = document.getElementById("diff-result-summary");
+    errorEl.classList.remove("show");
+    summaryEl.innerHTML = "";
+    summaryEl.className = "";
+
+    if (!beforeText || !afterText) {
+        errorEl.textContent = "請同時貼上（或匯入）「潤稿前」與「潤稿後」兩份文字，才能進行比對。";
+        errorEl.classList.add("show");
+        return;
+    }
+
+    const submitBtn = document.getElementById("diff-submit");
+    const loadingEl = document.getElementById("diff-loading");
+
+    submitBtn.disabled = true;
+    loadingEl.classList.add("show");
+
     try {
-        const result = await askZhuo({ systemPrompt, userPrompt, temperature: 0.3 });
-        const extractedRules = parseDiffAnalysisResult(result);
+        const extractedRules = await analyzeDiffPair(beforeText, afterText);
 
         if (extractedRules.length === 0) {
             summaryEl.className = "diff-result-summary";
