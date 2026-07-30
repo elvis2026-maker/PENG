@@ -7,7 +7,7 @@
  */
 
 // ⚠️ 請將此網址換成你部署好的 Cloudflare Worker 網址（見 SETUP.md）
-const WORKER_BASE_URL = "https://zhuo-editor-proxy.YOUR-SUBDOMAIN.workers.dev";
+const WORKER_BASE_URL = "https://elvis-peng.elvis-liu2027.workers.dev";
 
 // 若尚未設定 Worker 網址，系統會使用「示範模式」，以假資料展示完整流程，
 // 方便你在正式串接前先體驗完整互動流程。
