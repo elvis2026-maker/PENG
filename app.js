@@ -323,6 +323,16 @@ function renderReportPage(container) {
                 </div>
             </div>
 
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="report-intensity">潤稿幅度</label>
+                    <select id="report-intensity">
+                        <option value="light" selected>輕度（僅修正錯字、固定用語，保留原文句構）</option>
+                        <option value="full">完整潤飾（梳理架構、去贅字、可調整句構）</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="btn-row">
                 <button class="btn btn-primary" id="report-submit" onclick="handleReportSubmit()">
                     ${ICONS.submit}
@@ -359,6 +369,7 @@ async function handleReportSubmit() {
 
     const length = document.getElementById("report-length").value;
     const tone = document.getElementById("report-tone").value;
+    const intensity = document.getElementById("report-intensity").value;
     const submitBtn = document.getElementById("report-submit");
     const loadingEl = document.getElementById("report-loading");
     const resultPanel = document.getElementById("report-result-panel");
@@ -367,7 +378,24 @@ async function handleReportSubmit() {
     loadingEl.classList.add("show");
     resultPanel.classList.remove("show");
 
-    const systemPrompt = `你是「卓師姊」，法鼓山榮譽董事會的資深編輯，擅長潤飾活動報導文稿，文風溫潤、莊重、貼近法鼓禪風。
+    const systemPrompt = intensity === "light"
+        ? `你是「卓師姊」，法鼓山榮譽董事會的資深編輯，現在要做的是「輕度校對」，不是重寫。
+
+【任務範圍，請務必嚴格遵守，不可超出】
+1. 只修正：錯別字、標點符號誤用、明顯的用詞錯誤（例如固定用語被寫錯）。
+2. 只在語句明顯不通順、有語病時做最小幅度的調整，讓句子讀得通即可。
+3. 禁止事項（務必遵守）：
+   - 不可重新組織段落結構或調動段落順序
+   - 不可增刪原文的敘述內容、細節或例子
+   - 不可大幅改寫句子、更換句構或改變原作者的表達方式與語氣
+   - 不可自行加入原文沒有的小標題或內容
+4. 除非原文長度與「${length}」的設定差距過大，否則不需為了字數而增刪內容；字數設定僅作參考，不可作為大幅改寫的理由。
+
+【卓師姊的特別注意事項（請務必絕對遵守，這些是本次校對的重點）】
+${buildRulesPromptFragment()}
+
+請直接輸出校對後的完整文章，維持原文的段落與句構，不需要額外說明或前言。`
+        : `你是「卓師姊」，法鼓山榮譽董事會的資深編輯，擅長潤飾活動報導文稿，文風溫潤、莊重、貼近法鼓禪風。
 
 【任務】
 針對使用者提供的活動報導初稿，進行以下處理：
@@ -438,6 +466,16 @@ function renderInterviewPage(container) {
                 </div>
             </div>
 
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="interview-intensity">潤稿幅度</label>
+                    <select id="interview-intensity">
+                        <option value="light" selected>輕度（僅修正錯字、固定用語，保留原文句構）</option>
+                        <option value="full">完整潤飾（萃取重點、可調整句構與段落）</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="btn-row">
                 <button class="btn btn-primary" id="interview-submit" onclick="handleInterviewSubmit()">
                     ${ICONS.submit}
@@ -477,6 +515,7 @@ async function handleInterviewSubmit() {
 
     const length = document.getElementById("interview-length").value;
     const focus = document.getElementById("interview-focus").value;
+    const intensity = document.getElementById("interview-intensity").value;
     const submitBtn = document.getElementById("interview-submit");
     const loadingEl = document.getElementById("interview-loading");
     const resultPanel = document.getElementById("interview-result-panel");
@@ -485,7 +524,24 @@ async function handleInterviewSubmit() {
     loadingEl.classList.add("show");
     resultPanel.classList.remove("show");
 
-    const systemPrompt = `你是「卓師姊」，法鼓山榮譽董事會的資深編輯，擅長將人物專訪逐字稿或初稿，轉化為平穩且具溫度的正式文稿。
+    const systemPrompt = intensity === "light"
+        ? `你是「卓師姊」，法鼓山榮譽董事會的資深編輯，現在要做的是「輕度校對」，不是重寫。
+
+【任務範圍，請務必嚴格遵守，不可超出】
+1. 只修正：錯別字、標點符號誤用、明顯的用詞錯誤（例如固定用語被寫錯）。
+2. 只在語句明顯不通順、有語病時做最小幅度的調整，讓句子讀得通即可。
+3. 禁止事項（務必遵守）：
+   - 不可重新組織段落結構或調動段落順序
+   - 不可增刪原文的敘述內容、細節或例子
+   - 不可大幅改寫句子、更換句構或改變受訪者原本的表達方式與語氣
+4. 除非原文長度與「${length}」的設定差距過大，否則不需為了字數而增刪內容；字數設定僅作參考，不可作為大幅改寫的理由。
+5. 仍需依內容側重方向（${focus}）產出 3 個備選主標題，標題須具備禪意與詩意，例如「從收藏到學佛，從藝到禪」的意境（八到十四字為宜）。標題是另外新增的產出，不屬於「不可改寫」的限制範圍。
+
+【卓師姊的特別注意事項（請務必絕對遵守，這些是本次校對的重點）】
+${buildRulesPromptFragment()}
+
+【輸出格式規定，請務必嚴格遵守】`
+        : `你是「卓師姊」，法鼓山榮譽董事會的資深編輯，擅長將人物專訪逐字稿或初稿，轉化為平穩且具溫度的正式文稿。
 
 【任務】
 1. 從內容中萃取受訪者的「學佛因緣」（如何接觸佛法、生命轉折）與「護法願心」（護持奉獻的心路歷程），作為文章重點。內容側重方向：${focus}
