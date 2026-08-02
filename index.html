@@ -63,19 +63,24 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            cursor: pointer;
-            text-decoration: none;
+        }
+
+        .logo-section > a {
+            display: flex;
+            line-height: 0;
         }
 
         .logo-image {
             height: 45px;
             object-fit: contain;
             border-radius: 4px;
+            cursor: pointer;
         }
 
         .logo-text {
             display: flex;
             flex-direction: column;
+            cursor: pointer;
         }
 
         .logo-text .title {
@@ -1595,13 +1600,15 @@
 
     <header>
         <div class="header-top">
-            <a class="logo-section" href="https://elvis-corp.pages.dev/" title="前往 ELVIS-CORP 總部">
-                <img src="logo.png" alt="Elvis IT Logo" class="logo-image">
-                <div class="logo-text">
+            <div class="logo-section">
+                <a href="https://elvis-corp.pages.dev/" target="_blank" rel="noopener" title="前往 ELVIS-CORP 總部（開新分頁）">
+                    <img src="logo.png" alt="Elvis IT Logo" class="logo-image">
+                </a>
+                <div class="logo-text" onclick="showPage('home')" title="回本站首頁">
                     <span class="title">卓編數位書房</span>
                     <span class="subtitle">DIGITAL EDITOR ZHUO</span>
                 </div>
-            </a>
+            </div>
             <div class="status-btn" id="connectionStatus" title="知識庫已連線" onclick="toggleStatusTooltip()">
                 <span class="status-tooltip" id="connectionStatusTooltip">知識庫已連線</span>
             </div>
@@ -1676,7 +1683,7 @@
     </main>
 
     <footer>
-        Elvis 程式設計 ‧ 艾維斯資訊 IT‧ V12‧2026-08-02
+        Elvis 程式設計 ‧ 艾維斯資訊 IT‧ V13‧2026-08-02
     </footer>
 
     <!-- V5：檔案匯入匯出用 -->
