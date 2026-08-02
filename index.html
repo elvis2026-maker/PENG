@@ -64,6 +64,7 @@
             align-items: center;
             gap: 12px;
             cursor: pointer;
+            text-decoration: none;
         }
 
         .logo-image {
@@ -1594,13 +1595,13 @@
 
     <header>
         <div class="header-top">
-            <div class="logo-section" onclick="showPage('home')">
+            <a class="logo-section" href="https://elvis-corp.pages.dev/" title="前往 ELVIS-CORP 總部">
                 <img src="logo.png" alt="Elvis IT Logo" class="logo-image">
                 <div class="logo-text">
                     <span class="title">卓編數位書房</span>
                     <span class="subtitle">DIGITAL EDITOR ZHUO</span>
                 </div>
-            </div>
+            </a>
             <div class="status-btn" id="connectionStatus" title="知識庫已連線" onclick="toggleStatusTooltip()">
                 <span class="status-tooltip" id="connectionStatusTooltip">知識庫已連線</span>
             </div>
@@ -1675,7 +1676,7 @@
     </main>
 
     <footer>
-        Elvis 程式設計 ‧ 艾維斯資訊 IT‧ V11‧2026-08-02
+        Elvis 程式設計 ‧ 艾維斯資訊 IT‧ V12‧2026-08-02
     </footer>
 
     <!-- V5：檔案匯入匯出用 -->
